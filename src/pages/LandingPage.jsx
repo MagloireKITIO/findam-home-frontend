@@ -244,24 +244,46 @@ const LandingPage = () => {
           />
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featuredCities.slice(0, 6).map((city) => (
-              <Link to={`/properties?city=${city.id}`} key={city.id}>
-                <motion.div 
-                  whileHover={{ scale: 1.03 }}
-                  className="relative rounded-xl overflow-hidden h-64 shadow-lg group"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent opacity-70"></div>
-                  <img 
-                    src={`https://source.unsplash.com/featured/600x400?${city.name},city`} 
-                    alt={city.name} 
-                    className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute bottom-0 left-0 p-6 text-white">
-                    <h3 className="text-2xl font-bold">{city.name}</h3>
-                  </div>
-                </motion.div>
-              </Link>
-            ))}
+          {Array.isArray(featuredCities) && featuredCities.length > 0 ? (
+              featuredCities.slice(0, 6).map((city) => (
+                <Link to={`/properties?city=${city.id}`} key={city.id}>
+                  <motion.div 
+                    whileHover={{ scale: 1.03 }}
+                    className="relative rounded-xl overflow-hidden h-64 shadow-lg group"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent opacity-70"></div>
+                    <img 
+                      src={`https://source.unsplash.com/featured/600x400?${city.name},city`} 
+                      alt={city.name} 
+                      className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute bottom-0 left-0 p-6 text-white">
+                      <h3 className="text-2xl font-bold">{city.name}</h3>
+                    </div>
+                  </motion.div>
+                </Link>
+              ))
+            ) : (
+              // Afficher des villes par défaut si l'API ne renvoie pas de données valides
+              ['Douala', 'Yaoundé', 'Kribi', 'Limbé', 'Bafoussam', 'Garoua'].map((cityName, index) => (
+                <Link to={`/properties?city_name=${cityName}`} key={index}>
+                  <motion.div 
+                    whileHover={{ scale: 1.03 }}
+                    className="relative rounded-xl overflow-hidden h-64 shadow-lg group"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent opacity-70"></div>
+                    <img 
+                      src={`https://source.unsplash.com/featured/600x400?${cityName},city`} 
+                      alt={cityName} 
+                      className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute bottom-0 left-0 p-6 text-white">
+                      <h3 className="text-2xl font-bold">{cityName}</h3>
+                    </div>
+                  </motion.div>
+                </Link>
+              ))
+            )}
           </div>
         </div>
       </section>

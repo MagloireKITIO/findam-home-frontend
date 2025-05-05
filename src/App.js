@@ -11,6 +11,12 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import UserProfile from './pages/UserProfile';
 import IdentityVerification from './pages/IdentityVerification';
+import PropertySearch from './pages/PropertySearch';
+import PropertyDetail from './pages/PropertyDetail';
+import PropertyReviews from './pages/PropertyReviews';
+import BookingNew from './pages/BookingNew';
+import BookingList from './pages/BookingList';
+import BookingDetail from './pages/BookingDetail';
 import NotFound from './pages/NotFound';
 
 // Pour l'instant, importons des composants temporaires pour les routes à développer plus tard
@@ -20,8 +26,16 @@ const TemporaryPage = ({ title }) => (
   </div>
 );
 
-const PropertySearch = () => <TemporaryPage title="Recherche de logements" />;
-const PropertyDetail = () => <TemporaryPage title="Détail d'un logement" />;
+// Pages qui seront développées dans l'étape 5
+const Messages = () => <TemporaryPage title="Messagerie" />;
+const Notifications = () => <TemporaryPage title="Notifications" />;
+
+// Pages qui seront développées dans l'étape 6 (espace propriétaire)
+const OwnerDashboard = () => <TemporaryPage title="Tableau de bord propriétaire" />;
+const PropertyManagement = () => <TemporaryPage title="Gestion des logements" />;
+const PropertyEditor = () => <TemporaryPage title="Ajout/Édition de logement" />;
+const BookingManagement = () => <TemporaryPage title="Gestion des réservations" />;
+const PromoCodeCreation = () => <TemporaryPage title="Création de codes promo" />;
 
 function App() {
   return (
@@ -35,8 +49,9 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/properties" element={<PropertySearch />} />
             <Route path="/properties/:id" element={<PropertyDetail />} />
+            <Route path="/properties/:id/reviews" element={<PropertyReviews />} />
             
-            {/* Pages privées */}
+            {/* Pages privées - Profil et vérification */}
             <Route 
               path="/profile" 
               element={
@@ -50,6 +65,100 @@ function App() {
               element={
                 <PrivateRoute>
                   <IdentityVerification />
+                </PrivateRoute>
+              } 
+            />
+            
+            {/* Pages privées - Réservations */}
+            <Route 
+              path="/booking/new" 
+              element={
+                <PrivateRoute>
+                  <BookingNew />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/bookings" 
+              element={
+                <PrivateRoute>
+                  <BookingList />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/bookings/:id" 
+              element={
+                <PrivateRoute>
+                  <BookingDetail />
+                </PrivateRoute>
+              } 
+            />
+            
+            {/* Pages privées - Communications (à développer dans l'étape 5) */}
+            <Route 
+              path="/messages" 
+              element={
+                <PrivateRoute>
+                  <Messages />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/notifications" 
+              element={
+                <PrivateRoute>
+                  <Notifications />
+                </PrivateRoute>
+              } 
+            />
+            
+            {/* Pages privées - Espace propriétaire (à développer dans l'étape 6) */}
+            <Route 
+              path="/owner/dashboard" 
+              element={
+                <PrivateRoute requireVerified={true}>
+                  <OwnerDashboard />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/owner/properties" 
+              element={
+                <PrivateRoute requireVerified={true}>
+                  <PropertyManagement />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/owner/properties/new" 
+              element={
+                <PrivateRoute requireVerified={true}>
+                  <PropertyEditor />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/owner/properties/:id/edit" 
+              element={
+                <PrivateRoute requireVerified={true}>
+                  <PropertyEditor />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/owner/bookings" 
+              element={
+                <PrivateRoute requireVerified={true}>
+                  <BookingManagement />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/owner/promo-codes" 
+              element={
+                <PrivateRoute requireVerified={true}>
+                  <PromoCodeCreation />
                 </PrivateRoute>
               } 
             />

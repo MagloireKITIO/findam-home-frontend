@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { FiMenu, FiX, FiUser, FiHome, FiSearch, FiCalendar, FiMessageSquare, FiLogOut } from 'react-icons/fi';
+import NotificationBadge from '../common/NotificationBadge';
 
 const Header = () => {
   const { currentUser, logout } = useAuth();
@@ -98,6 +99,17 @@ const Header = () => {
           <div className="hidden md:flex items-center space-x-4">
             {currentUser ? (
               <div className="flex items-center space-x-4">
+                <NotificationBadge />
+                <Link to="/messages">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center space-x-1 text-sm font-medium text-gray-700 hover:text-primary-600"
+                  >
+                    <FiMessageSquare />
+                    <span>Messages</span>
+                  </motion.button>
+                </Link>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -165,69 +177,83 @@ const Header = () => {
 
       {/* Mobile Menu */}
       <AnimatePresence>
-        {isMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3 }}
-            className="md:hidden bg-white border-t mt-2"
-          >
-            <div className="container mx-auto px-4 py-4">
-              <nav className="flex flex-col space-y-4">
-                {getNavLinks().map((link) => (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    className={`flex items-center space-x-2 p-2 rounded-lg ${
-                      location.pathname === link.to
-                        ? 'bg-primary-50 text-primary-600'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span>{link.icon}</span>
-                    <span>{link.text}</span>
-                  </Link>
-                ))}
+            {isMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="md:hidden bg-white border-t mt-2"
+              >
+                <div className="container mx-auto px-4 py-4">
+                  <nav className="flex flex-col space-y-4">
+                    {getNavLinks().map((link) => (
+                      <Link
+                        key={link.to}
+                        to={link.to}
+                        className={`flex items-center space-x-2 p-2 rounded-lg ${
+                          location.pathname === link.to
+                            ? 'bg-primary-50 text-primary-600'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span>{link.icon}</span>
+                        <span>{link.text}</span>
+                      </Link>
+                    ))}
 
-                {currentUser ? (
-                  <>
-                    <Link
-                      to="/profile"
-                      className="flex items-center space-x-2 p-2 rounded-lg text-gray-700 hover:bg-gray-50"
-                    >
-                      <FiUser />
-                      <span>Mon profil</span>
-                    </Link>
-                    <button
-                      onClick={logout}
-                      className="flex items-center space-x-2 p-2 rounded-lg text-gray-700 hover:bg-gray-50"
-                    >
-                      <FiLogOut />
-                      <span>Déconnexion</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link
-                      to="/login"
-                      className="w-full btn btn-secondary"
-                    >
-                      Connexion
-                    </Link>
-                    <Link
-                      to="/register"
-                      className="w-full btn btn-primary"
-                    >
-                      Inscription
-                    </Link>
-                  </>
-                )}
-              </nav>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                    {currentUser ? (
+                      <>
+                        <Link
+                          to="/messages"
+                          className="flex items-center space-x-2 p-2 rounded-lg text-gray-700 hover:bg-gray-50"
+                        >
+                          <FiMessageSquare />
+                          <span>Messages</span>
+                        </Link>
+                        <Link
+                          to="/notifications"
+                          className="flex items-center space-x-2 p-2 rounded-lg text-gray-700 hover:bg-gray-50"
+                        >
+                          <FiBell />
+                          <span>Notifications</span>
+                        </Link>
+                        <Link
+                          to="/profile"
+                          className="flex items-center space-x-2 p-2 rounded-lg text-gray-700 hover:bg-gray-50"
+                        >
+                          <FiUser />
+                          <span>Mon profil</span>
+                        </Link>
+                        <button
+                          onClick={logout}
+                          className="flex items-center space-x-2 p-2 rounded-lg text-gray-700 hover:bg-gray-50"
+                        >
+                          <FiLogOut />
+                          <span>Déconnexion</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          to="/login"
+                          className="w-full btn btn-secondary"
+                        >
+                          Connexion
+                        </Link>
+                        <Link
+                          to="/register"
+                          className="w-full btn btn-primary"
+                        >
+                          Inscription
+                        </Link>
+                      </>
+                    )}
+                  </nav>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
     </header>
   );
 };
