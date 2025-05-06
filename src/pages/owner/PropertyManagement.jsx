@@ -43,7 +43,6 @@ const PropertyManagement = () => {
         setError(null);
         
         const response = await api.get('/properties/properties/', {
-            
           params: {
             is_owner: true,
             ordering: sortDirection === 'asc' ? sortBy : `-${sortBy}`
@@ -51,16 +50,11 @@ const PropertyManagement = () => {
         });
         console.log('Propriétés chargées:', response.data);
         
-        if (response.data.results) {
-          setProperties(response.data.results);
-          setFilteredProperties(response.data.results);
-        } else if (Array.isArray(response.data)) {
-          setProperties(response.data);
-          setFilteredProperties(response.data);
-        } else {
-          setProperties([]);
-          setFilteredProperties([]);
-        }
+        // Assurez-vous que les données de réponse contiennent toutes les propriétés nécessaires
+        const propertiesData = response.data.results || response.data || [];
+        
+        setProperties(propertiesData);
+        setFilteredProperties(propertiesData);
       } catch (err) {
         console.error('Erreur lors du chargement des logements:', err);
         setError('Une erreur est survenue lors du chargement des logements.');
@@ -141,27 +135,14 @@ const PropertyManagement = () => {
         )
       );
       
-      // Recharger la liste des propriétés pour s'assurer que tous les changements sont reflétés
-      loadProperties();
+      // Ne pas appeler loadProperties() ici car cela va remplacer notre mise à jour d'état locale
+      // et potentiellement réinitialiser d'autres états comme les filtres actuels
     } catch (err) {
       console.error('Erreur:', err);
       notifyError('Une erreur est survenue');
     }
   };
   
-  // Ajoutez cette fonction pour recharger les propriétés
-  const loadProperties = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/properties/properties/');
-      setProperties(response.data.results || response.data || []);
-      setFilteredProperties(response.data.results || response.data || []);
-    } catch (err) {
-      console.error('Erreur:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
   
   // Supprimer un logement
   const handleDeleteProperty = async () => {

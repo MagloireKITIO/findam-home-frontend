@@ -32,10 +32,12 @@ const LandingPage = () => {
         setLoading(true);
         
         // Récupérer les propriétés populaires (les mieux notées)
-        const propertiesResponse = await api.get('/properties/', {
+        const propertiesResponse = await api.get('/properties/properties/', {
           params: {
             ordering: '-avg_rating',
             limit: 6,
+            is_published: true,
+            is_verified: true
           }
         });
         const citiesResponse = await api.get('/properties/cities/');
@@ -43,7 +45,15 @@ const LandingPage = () => {
         const properties = propertiesResponse.data.results || propertiesResponse.data || [];
         const cities = citiesResponse.data.results || citiesResponse.data || [];
         
-        console.log('Propriétés récupérées:', properties); // Pour déboguer
+        console.log('URL de la requête:', propertiesResponse.request?.responseURL);
+        console.log('Propriétés récupérées:', properties); 
+        console.log('Nombre de propriétés:', properties.length);
+        console.log('Status des propriétés:', properties.map(p => ({
+          id: p.id,
+          title: p.title,
+          is_published: p.is_published,
+          is_verified: p.is_verified
+        })));
 
         setPopularProperties(properties);
         setFeaturedCities(cities);

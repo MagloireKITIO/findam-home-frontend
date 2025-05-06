@@ -5,20 +5,27 @@ import { motion } from 'framer-motion';
 import { FiStar, FiMapPin, FiUser, FiHome } from 'react-icons/fi';
 
 const PropertyCard = ({ property }) => {
+  // Vérifiez que toutes les propriétés sont disponibles, avec des valeurs par défaut si nécessaire
   const {
     id,
     title,
     main_image,
     price_per_night,
-    city_name,
-    neighborhood_name,
-    property_type,
-    capacity,
-    bedrooms,
-    bathrooms,
-    avg_rating,
-    rating_count,
-  } = property;
+    city_name = '',
+    neighborhood_name = '',
+    property_type = 'apartment',
+    capacity = 1,
+    bedrooms = 1,
+    bathrooms = 1,
+    avg_rating = 0,
+    rating_count = 0,
+  } = property || {};
+
+  // Si les données sont incomplètes ou invalides
+  if (!id || !title) {
+    console.warn('PropertyCard: Données de propriété incomplètes', property);
+    return null;
+  }
 
   return (
     <motion.div 
@@ -55,7 +62,7 @@ const PropertyCard = ({ property }) => {
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center text-sm text-gray-600">
               <FiMapPin className="mr-1" size={14} />
-              <span>{city_name}, {neighborhood_name}</span>
+              <span>{city_name && neighborhood_name ? `${city_name}, ${neighborhood_name}` : city_name || neighborhood_name || 'Emplacement'}</span>
             </div>
             
             {avg_rating > 0 && (
@@ -80,7 +87,7 @@ const PropertyCard = ({ property }) => {
 
           <div className="flex items-end justify-between">
             <div>
-              <span className="text-lg font-bold text-primary-600">{price_per_night.toLocaleString()} FCFA</span>
+              <span className="text-lg font-bold text-primary-600">{typeof price_per_night === 'number' ? price_per_night.toLocaleString() : price_per_night} FCFA</span>
               <span className="text-sm text-gray-600"> / nuit</span>
             </div>
             <motion.div

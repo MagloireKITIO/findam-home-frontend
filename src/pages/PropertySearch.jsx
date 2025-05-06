@@ -165,7 +165,7 @@ const PropertySearch = () => {
         
         while (!success && retryCount < maxRetries) {
           try {
-            const response = await api.get('/properties/', { 
+            const response = await api.get('/properties/properties/', { 
               params: apiParams,
               timeout: 10000 // 10 secondes timeout
             });
