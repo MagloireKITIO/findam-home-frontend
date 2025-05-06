@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fi';
 
 import api from '../../services/api';
+import notificationCache from '../../services/notificationCache';
 import { useAuth } from '../../context/AuthContext';
 
 const NotificationBadge = () => {
@@ -40,10 +41,21 @@ const NotificationBadge = () => {
     const fetchUnreadCount = async () => {
       if (!currentUser) return;
       
+      // Vérifier si le nombre est en cache
+      const cachedCount = notificationCache.getCachedUnreadCount();
+      if (cachedCount !== null) {
+        setUnreadCount(cachedCount);
+        return;
+      }
+      
       try {
         const response = await api.get('/communications/notifications/unread_count/');
         if (response.data && response.data.unread_count !== undefined) {
-          setUnreadCount(response.data.unread_count);
+          const count = response.data.unread_count;
+          setUnreadCount(count);
+          
+          // Mettre en cache
+          notificationCache.setCachedUnreadCount(count);
         }
       } catch (err) {
         console.error('Erreur lors de la récupération du nombre de notifications non lues:', err);
@@ -61,6 +73,13 @@ const NotificationBadge = () => {
   const loadRecentNotifications = async () => {
     if (!currentUser || loading) return;
     
+    // Vérifier si les notifications récentes sont en cache
+    const cachedNotifications = notificationCache.getCachedRecentNotifications();
+    if (cachedNotifications !== null) {
+      setRecentNotifications(cachedNotifications);
+      return;
+    }
+    
     setLoading(true);
     
     try {
@@ -68,13 +87,18 @@ const NotificationBadge = () => {
         params: { page: 1, page_size: 5 }
       });
       
+      let notificationsData = [];
+      
       if (response.data && response.data.results) {
-        setRecentNotifications(response.data.results);
+        notificationsData = response.data.results;
       } else if (Array.isArray(response.data)) {
-        setRecentNotifications(response.data.slice(0, 5));
-      } else {
-        setRecentNotifications([]);
+        notificationsData = response.data.slice(0, 5);
       }
+      
+      setRecentNotifications(notificationsData);
+      
+      // Mettre en cache
+      notificationCache.setCachedRecentNotifications(notificationsData);
     } catch (err) {
       console.error('Erreur lors du chargement des notifications récentes:', err);
     } finally {
@@ -95,6 +119,11 @@ const NotificationBadge = () => {
   // Naviguer vers l'élément lié à la notification
   const navigateToNotificationTarget = (notification) => {
     setIsDropdownOpen(false);
+    
+    // Marquer comme lu
+    if (!notification.is_read) {
+      markAsRead(notification.id);
+    }
     
     // Rediriger selon le type et l'objet lié
     switch (notification.notification_type) {
@@ -121,7 +150,15 @@ const NotificationBadge = () => {
           navigate('/properties');
         }
         break;
+      case 'payment_received':
+        if (notification.related_object_id && notification.related_object_type === 'booking') {
+          navigate(`/bookings/${notification.related_object_id}`);
+        } else {
+          navigate('/bookings');
+        }
+        break;
       default:
+        // Pour les autres types, rediriger vers la page d'accueil
         navigate('/notifications');
     }
   };
@@ -132,6 +169,11 @@ const NotificationBadge = () => {
     
     try {
       await api.post('/communications/notifications/mark_all_as_read/');
+      
+      // Mettre à jour le cache
+      notificationCache.markAllNotificationsAsRead();
+      
+      // Mettre à jour l'état
       setUnreadCount(0);
       setRecentNotifications(prev => prev.map(notification => ({
         ...notification,
@@ -139,6 +181,29 @@ const NotificationBadge = () => {
       })));
     } catch (err) {
       console.error('Erreur lors du marquage des notifications comme lues:', err);
+    }
+  };
+  
+  // Marquer une notification comme lue
+  const markAsRead = async (notificationId) => {
+    try {
+      // Mettre à jour localement
+      setRecentNotifications(prev => prev.map(notification => 
+        notification.id === notificationId ? { ...notification, is_read: true } : notification
+      ));
+      
+      // Mettre à jour le compteur si nécessaire
+      if (unreadCount > 0) {
+        setUnreadCount(prev => prev - 1);
+      }
+      
+      // Mettre à jour le cache
+      notificationCache.markNotificationAsRead(notificationId);
+      
+      // L'API ne fournit pas d'endpoint pour marquer une seule notification,
+      // mais si elle le faisait, nous appellerions ici
+    } catch (err) {
+      console.error('Erreur lors du marquage de la notification comme lue:', err);
     }
   };
   
@@ -285,7 +350,7 @@ const NotificationBadge = () => {
                       </div>
                     </div>
                   ))}
-                </div>
+                  </div>
               )}
             </div>
             

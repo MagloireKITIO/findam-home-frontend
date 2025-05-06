@@ -11,6 +11,7 @@ import Layout from '../components/layout/Layout';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
 import api from '../services/api';
+import notificationCache from '../services/notificationCache';
 import { useNotification } from '../context/NotificationContext';
 
 const Notifications = () => {
@@ -25,6 +26,7 @@ const Notifications = () => {
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'booking', 'message', 'review'
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false); // État pour gérer le dropdown des filtres
 
   // Effet pour charger les notifications
   useEffect(() => {
@@ -42,6 +44,19 @@ const Notifications = () => {
           params.notification_type = filter;
         }
         
+        // Si nous demandons toutes les notifications non filtrées et qu'elles sont en cache
+        // pour les 5 dernières, nous pourrions les utiliser pour un premier rendu rapide
+        let initialNotifications = [];
+        if (filter === 'all' && page === 1) {
+          const cachedNotifications = notificationCache.getCachedRecentNotifications();
+          if (cachedNotifications) {
+            initialNotifications = cachedNotifications;
+            setNotifications(cachedNotifications);
+            setLoading(false);
+            // Continuer le chargement en arrière-plan pour avoir la liste complète
+          }
+        }
+        
         const response = await api.get('/communications/notifications/', { params });
         
         if (response.data.results) {
@@ -56,6 +71,17 @@ const Notifications = () => {
         }
         
         setPage(1);
+        
+        // Si c'est la première page sans filtre, mettre à jour le cache
+        if (filter === 'all' && params.page === 1) {
+          // Mise à jour du count dans le cache
+          const unreadCount = response.data.results?.filter(n => !n.is_read).length || 0;
+          notificationCache.setCachedUnreadCount(unreadCount);
+          
+          // Mise à jour des notifications récentes dans le cache
+          const recentNotifications = response.data.results?.slice(0, 5) || [];
+          notificationCache.setCachedRecentNotifications(recentNotifications);
+        }
       } catch (err) {
         console.error('Erreur lors du chargement des notifications:', err);
         setError('Une erreur est survenue lors du chargement des notifications.');
@@ -113,6 +139,9 @@ const Notifications = () => {
         is_read: true
       })));
       
+      // Mettre à jour le cache
+      notificationCache.markAllNotificationsAsRead();
+      
       success('Toutes les notifications ont été marquées comme lues');
     } catch (err) {
       console.error('Erreur lors du marquage des notifications comme lues:', err);
@@ -123,11 +152,16 @@ const Notifications = () => {
   // Marquer une notification comme lue
   const markAsRead = async (notificationId) => {
     try {
-      // L'API ne fournit pas d'endpoint pour marquer une seule notification,
-      // donc nous mettons simplement à jour l'état local
+      // Mettre à jour l'état local
       setNotifications(prev => prev.map(notification => 
         notification.id === notificationId ? { ...notification, is_read: true } : notification
       ));
+      
+      // Mettre à jour le cache
+      notificationCache.markNotificationAsRead(notificationId);
+      
+      // Note: L'API ne fournit pas d'endpoint pour marquer une seule notification
+      // Ici, nous mettons simplement à jour l'interface utilisateur
     } catch (err) {
       console.error('Erreur lors du marquage de la notification comme lue:', err);
       notifyError('Une erreur est survenue. Veuillez réessayer.');
@@ -256,6 +290,12 @@ const Notifications = () => {
     }
   };
 
+  // Gérer le changement de filtre
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter);
+    setIsFilterDropdownOpen(false);
+  };
+
   // Vérifier s'il y a des notifications non lues
   const hasUnreadNotifications = notifications.some(notification => !notification.is_read);
 
@@ -281,43 +321,46 @@ const Notifications = () => {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
                 >
                   {getFilterLabel()}
                 </Button>
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg overflow-hidden z-20">
-                  <div className="py-1">
-                    <button
-                      className={`w-full text-left px-4 py-2 text-sm ${filter === 'all' ? 'bg-primary-50 text-primary-600' : 'hover:bg-gray-100'}`}
-                      onClick={() => setFilter('all')}
-                    >
-                      Toutes les notifications
-                    </button>
-                    <button
-                      className={`w-full text-left px-4 py-2 text-sm ${filter === 'unread' ? 'bg-primary-50 text-primary-600' : 'hover:bg-gray-100'}`}
-                      onClick={() => setFilter('unread')}
-                    >
-                      Non lues
-                    </button>
-                    <button
-                      className={`w-full text-left px-4 py-2 text-sm ${filter === 'new_message' ? 'bg-primary-50 text-primary-600' : 'hover:bg-gray-100'}`}
-                      onClick={() => setFilter('new_message')}
-                    >
-                      Messages
-                    </button>
-                    <button
-                      className={`w-full text-left px-4 py-2 text-sm ${filter === 'new_booking' ? 'bg-primary-50 text-primary-600' : 'hover:bg-gray-100'}`}
-                      onClick={() => setFilter('new_booking')}
-                    >
-                      Réservations
-                    </button>
-                    <button
-                      className={`w-full text-left px-4 py-2 text-sm ${filter === 'new_review' ? 'bg-primary-50 text-primary-600' : 'hover:bg-gray-100'}`}
-                      onClick={() => setFilter('new_review')}
-                    >
-                      Avis
-                    </button>
+                {isFilterDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg overflow-hidden z-20">
+                    <div className="py-1">
+                      <button
+                        className={`w-full text-left px-4 py-2 text-sm ${filter === 'all' ? 'bg-primary-50 text-primary-600' : 'hover:bg-gray-100'}`}
+                        onClick={() => handleFilterChange('all')}
+                      >
+                        Toutes les notifications
+                      </button>
+                      <button
+                        className={`w-full text-left px-4 py-2 text-sm ${filter === 'unread' ? 'bg-primary-50 text-primary-600' : 'hover:bg-gray-100'}`}
+                        onClick={() => handleFilterChange('unread')}
+                      >
+                        Non lues
+                      </button>
+                      <button
+                        className={`w-full text-left px-4 py-2 text-sm ${filter === 'new_message' ? 'bg-primary-50 text-primary-600' : 'hover:bg-gray-100'}`}
+                        onClick={() => handleFilterChange('new_message')}
+                      >
+                        Messages
+                      </button>
+                      <button
+                        className={`w-full text-left px-4 py-2 text-sm ${filter === 'new_booking' ? 'bg-primary-50 text-primary-600' : 'hover:bg-gray-100'}`}
+                        onClick={() => handleFilterChange('new_booking')}
+                      >
+                        Réservations
+                      </button>
+                      <button
+                        className={`w-full text-left px-4 py-2 text-sm ${filter === 'new_review' ? 'bg-primary-50 text-primary-600' : 'hover:bg-gray-100'}`}
+                        onClick={() => handleFilterChange('new_review')}
+                      >
+                        Avis
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>

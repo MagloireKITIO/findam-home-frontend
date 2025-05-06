@@ -18,10 +18,16 @@ api.interceptors.request.use(
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
+    
+    // Supprimer le Content-Type pour FormData (il sera automatiquement défini)
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+    
     return config;
   },
   (error) => {
-    return Promise.reject(error);
+    return Promise.reject(error); 
   }
 );
 

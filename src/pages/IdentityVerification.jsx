@@ -12,7 +12,7 @@ import useApi from '../hooks/useApi';
 const IdentityVerification = () => {
   const navigate = useNavigate();
   const { success, error: notifyError } = useNotification();
-  const { postData, loading, error } = useApi();
+  const { patchData, loading, error } = useApi();
 
   // Références pour les entrées de fichier
   const idCardInputRef = useRef(null);
@@ -149,7 +149,7 @@ const IdentityVerification = () => {
       data.append('selfie_image', formData.selfie_image);
       
       // Envoi au serveur
-      await postData('/accounts/verify-identity/', data);
+      await patchData('/accounts/verify-identity/', data);
       
       success('Votre demande de vérification a été soumise avec succès. Nous la traiterons dans les plus brefs délais.');
       navigate('/profile');

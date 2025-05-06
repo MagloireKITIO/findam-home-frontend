@@ -1,10 +1,10 @@
-// src/pages/Messages.jsx
-import React, { useState, useEffect } from 'react';
+// src/pages/Messages.jsx - Mise à jour avec WebSockets
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiSearch, FiMessageSquare, FiUser, FiChevronLeft,
-  FiSend, FiPaperclip, FiChevronRight, FiHome
+  FiSend, FiPaperclip, FiChevronRight, FiHome, FiClock
 } from 'react-icons/fi';
 
 import Layout from '../components/layout/Layout';
@@ -12,6 +12,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import api from '../services/api';
+import websocketService from '../services/websocket';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 
@@ -32,9 +33,13 @@ const Messages = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
   const [showConversationList, setShowConversationList] = useState(true);
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingTimeout, setTypingTimeout] = useState(null);
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
 
-  // Référence pour le conteneur des messages
-  const messagesEndRef = React.useRef(null);
+  // Références
+  const messagesEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   // Effet pour la responsivité
   useEffect(() => {
@@ -89,13 +94,26 @@ const Messages = () => {
     };
 
     loadConversations();
+
+    // Se connecter aux notifications WebSocket
+    websocketService.connectToNotifications((data) => {
+      // Si c'est un nouveau message, mettre à jour les conversations
+      if (data.type === 'notification' && data.notification.notification_type === 'new_message') {
+        loadConversations();
+      }
+    });
+
+    // Nettoyage à la fermeture du composant
+    return () => {
+      websocketService.disconnectFromNotifications();
+    };
   }, [location.state?.conversationId]);
 
-  // Effet pour charger les messages d'une conversation active
+  // Effet pour charger les messages d'une conversation active et établir la connexion WebSocket
   useEffect(() => {
+    if (!activeConversation) return;
+    
     const loadMessages = async () => {
-      if (!activeConversation) return;
-      
       setLoadingMessages(true);
       
       try {
@@ -129,14 +147,55 @@ const Messages = () => {
     };
 
     loadMessages();
-  }, [activeConversation, notifyError]);
+
+    // Établir la connexion WebSocket pour la conversation active
+    const handleWebSocketMessage = (data) => {
+      // Gestion des différents types de messages WebSocket
+      if (data.type === 'message' && data.message) {
+        // Ajouter le nouveau message à la liste
+        setMessages(prev => [...prev, data.message]);
+        
+        // Marquer comme lu si c'est un message entrant
+        if (data.message.sender_id !== currentUser.id) {
+          websocketService.markConversationAsRead(activeConversation.id);
+        }
+      } else if (data.type === 'typing') {
+        // Montrer l'indicateur de frappe si c'est l'autre utilisateur
+        if (data.user_id !== currentUser.id) {
+          setOtherUserTyping(data.is_typing);
+        }
+      } else if (data.type === 'read') {
+        // Marquer les messages comme lus côté UI
+        setMessages(prev => prev.map(msg => ({
+          ...msg,
+          is_read: true
+        })));
+      }
+    };
+
+    websocketService.connectToConversation(activeConversation.id, handleWebSocketMessage);
+
+    // Marquer la conversation comme lue via WebSocket
+    websocketService.markConversationAsRead(activeConversation.id);
+
+    // Nettoyage lors du changement de conversation ou fermeture du composant
+    return () => {
+      websocketService.disconnectFromConversation(activeConversation.id);
+      setOtherUserTyping(false);
+      
+      // Nettoyer le timeout d'indication de frappe
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [activeConversation, currentUser.id, notifyError]);
 
   // Effet pour faire défiler vers le dernier message
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, otherUserTyping]);
 
   // Filtrer les conversations selon la recherche
   const filteredConversations = conversations.filter(conversation => {
@@ -149,10 +208,38 @@ const Messages = () => {
 
   // Sélectionner une conversation
   const selectConversation = (conversation) => {
+    // Si on sélectionne la même conversation, ne rien faire
+    if (activeConversation?.id === conversation.id) return;
+    
     setActiveConversation(conversation);
     
     if (isMobileView) {
       setShowConversationList(false);
+    }
+  };
+
+  // Gérer la saisie du message (avec notification de frappe)
+  const handleMessageInput = (e) => {
+    setNewMessage(e.target.value);
+    
+    // Envoyer une notification de frappe
+    if (activeConversation) {
+      // Si c'est la première frappe, envoyer tout de suite
+      if (!isTyping) {
+        setIsTyping(true);
+        websocketService.sendTypingNotification(activeConversation.id, true);
+      }
+      
+      // Réinitialiser le timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Définir un nouveau timeout pour arrêter l'indicateur de frappe
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+        websocketService.sendTypingNotification(activeConversation.id, false);
+      }, 3000);
     }
   };
 
@@ -161,14 +248,22 @@ const Messages = () => {
     if (!newMessage.trim() || !activeConversation) return;
     
     try {
+      // Arrêter l'indicateur de frappe
+      setIsTyping(false);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      websocketService.sendTypingNotification(activeConversation.id, false);
+      
+      // Envoyer le message via l'API
       const response = await api.post('/communications/messages/', {
         conversation: activeConversation.id,
         content: newMessage,
         message_type: 'text'
       });
       
-      // Ajouter le nouveau message à la liste
-      setMessages(prev => [...prev, response]);
+      // Ajouter le nouveau message à la liste (sera aussi reçu via WebSocket)
+      setMessages(prev => [...prev, response.data]);
       
       // Mettre à jour les conversations pour montrer le dernier message
       setConversations(prev => prev.map(conv => 
@@ -185,6 +280,9 @@ const Messages = () => {
             } 
           : conv
       ));
+      
+      // Envoyer aussi via WebSocket pour une transmission plus rapide
+      websocketService.sendMessage(activeConversation.id, newMessage);
       
       // Réinitialiser le champ de message
       setNewMessage('');
@@ -447,14 +545,32 @@ const Messages = () => {
                                       : 'bg-gray-100 text-gray-800 rounded-tl-lg rounded-tr-lg rounded-br-lg'
                                   } p-3`}
                                 >
-                                  <div>{message.content}</div>
-                                  <div className={`text-xs mt-1 ${isCurrentUser ? 'text-primary-100' : 'text-gray-500'}`}>
+                                  <div className="break-words">{message.content}</div>
+                                  <div className={`text-xs mt-1 flex items-center justify-end ${isCurrentUser ? 'text-primary-100' : 'text-gray-500'}`}>
                                     {formatDateTime(message.created_at)}
+                                    {isCurrentUser && message.is_read && (
+                                      <span className="ml-1 text-xs">✓</span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
                             );
                           })}
+                          
+                          {/* Indicateur de frappe */}
+                          {otherUserTyping && (
+                            <div className="flex justify-start">
+                              <div className="max-w-[70%] bg-gray-100 text-gray-800 rounded-lg p-3">
+                                <div className="flex items-center">
+                                  <FiClock size={14} className="mr-2 text-gray-500" />
+                                  <span className="text-sm text-gray-500 italic">
+                                    {activeConversation.other_participant?.first_name || 'L\'utilisateur'} est en train d'écrire...
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
                           <div ref={messagesEndRef} />
                         </div>
                       )}
@@ -468,13 +584,17 @@ const Messages = () => {
                             type="text"
                             placeholder="Écrire un message..."
                             value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
+                            onChange={handleMessageInput}
                             onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                           />
                         </div>
                         <button
-                          className="ml-3 bg-primary-500 text-white p-2 rounded-full hover:bg-primary-600 transition-colors"
+                          className={`ml-3 p-2 rounded-full transition-colors ${
+                            newMessage.trim() 
+                              ? 'bg-primary-500 text-white hover:bg-primary-600' 
+                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          }`}
                           onClick={sendMessage}
                           disabled={!newMessage.trim()}
                         >

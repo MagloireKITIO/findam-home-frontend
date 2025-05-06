@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
-import { FiMenu, FiX, FiUser, FiHome, FiSearch, FiCalendar, FiMessageSquare, FiLogOut } from 'react-icons/fi';
+import { FiMenu, FiX, FiUser, FiHome, FiSearch, FiCalendar, FiMessageSquare, FiLogOut, FiBell } from 'react-icons/fi';
 import NotificationBadge from '../common/NotificationBadge';
 
 const Header = () => {

@@ -17,7 +17,14 @@ import PropertyReviews from './pages/PropertyReviews';
 import BookingNew from './pages/BookingNew';
 import BookingList from './pages/BookingList';
 import BookingDetail from './pages/BookingDetail';
+import Messages from './pages/Messages';
+import Notifications from './pages/Notifications';
 import NotFound from './pages/NotFound';
+
+// Pages de l'espace propriétaire
+import OwnerDashboard from './pages/owner/OwnerDashboard';
+import PropertyManagement from './pages/owner/PropertyManagement';
+import PropertyEditor from './pages/owner/PropertyEditor';
 
 // Pour l'instant, importons des composants temporaires pour les routes à développer plus tard
 const TemporaryPage = ({ title }) => (
@@ -26,16 +33,11 @@ const TemporaryPage = ({ title }) => (
   </div>
 );
 
-// Pages qui seront développées dans l'étape 5
-const Messages = () => <TemporaryPage title="Messagerie" />;
-const Notifications = () => <TemporaryPage title="Notifications" />;
-
-// Pages qui seront développées dans l'étape 6 (espace propriétaire)
-const OwnerDashboard = () => <TemporaryPage title="Tableau de bord propriétaire" />;
-const PropertyManagement = () => <TemporaryPage title="Gestion des logements" />;
-const PropertyEditor = () => <TemporaryPage title="Ajout/Édition de logement" />;
+// Pages qui seront développées dans les prochaines étapes
 const BookingManagement = () => <TemporaryPage title="Gestion des réservations" />;
 const PromoCodeCreation = () => <TemporaryPage title="Création de codes promo" />;
+const OwnerSubscription = () => <TemporaryPage title="Abonnement propriétaire" />;
+const OwnerSubscriptionPayment = () => <TemporaryPage title="Paiement de l'abonnement" />;
 
 function App() {
   return (
@@ -95,7 +97,7 @@ function App() {
               } 
             />
             
-            {/* Pages privées - Communications (à développer dans l'étape 5) */}
+            {/* Pages privées - Communications */}
             <Route 
               path="/messages" 
               element={
@@ -113,7 +115,7 @@ function App() {
               } 
             />
             
-            {/* Pages privées - Espace propriétaire (à développer dans l'étape 6) */}
+            {/* Pages privées - Espace propriétaire */}
             <Route 
               path="/owner/dashboard" 
               element={
@@ -159,6 +161,22 @@ function App() {
               element={
                 <PrivateRoute requireVerified={true}>
                   <PromoCodeCreation />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/owner/subscription" 
+              element={
+                <PrivateRoute>
+                  <OwnerSubscription />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/owner/subscription/:id/payment" 
+              element={
+                <PrivateRoute>
+                  <OwnerSubscriptionPayment />
                 </PrivateRoute>
               } 
             />
