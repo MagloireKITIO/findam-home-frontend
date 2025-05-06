@@ -1,5 +1,5 @@
-// src/components/owner/PropertyAmenitiesForm.jsx
-import React, { useState } from 'react';
+// src/components/owner/PropertyAmenitiesForm.jsx - Correction pour l'affichage des équipements
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiInfo, FiSearch, FiCheck } from 'react-icons/fi';
 
@@ -12,6 +12,8 @@ import { FiInfo, FiSearch, FiCheck } from 'react-icons/fi';
 const PropertyAmenitiesForm = ({ selectedAmenities = [], updateAmenities, amenitiesList = [] }) => {
   // État local pour la recherche
   const [searchTerm, setSearchTerm] = useState('');
+  // État pour les équipements groupés par catégorie
+  const [categorizedAmenities, setCategorizedAmenities] = useState({});
   
   // Catégories triées par ordre d'importance
   const categories = [
@@ -26,6 +28,30 @@ const PropertyAmenitiesForm = ({ selectedAmenities = [], updateAmenities, amenit
     { id: 'comfort', name: 'Confort', icon: '🛋️' },
     { id: 'other', name: 'Autres', icon: '📌' }
   ];
+
+  // Organiser les équipements par catégorie à partir de la liste fournie
+  useEffect(() => {
+    const amenitiesByCategory = {};
+    
+    // Initialiser toutes les catégories avec des tableaux vides
+    categories.forEach(category => {
+      amenitiesByCategory[category.id] = [];
+    });
+    
+    // Répartir les équipements dans leurs catégories
+    amenitiesList.forEach(amenity => {
+      const category = amenity.category ? amenity.category.toLowerCase() : 'other';
+      
+      // Vérifier si la catégorie existe, sinon mettre dans "other"
+      if (amenitiesByCategory[category] !== undefined) {
+        amenitiesByCategory[category].push(amenity);
+      } else {
+        amenitiesByCategory['other'].push(amenity);
+      }
+    });
+    
+    setCategorizedAmenities(amenitiesByCategory);
+  }, [amenitiesList]);
   
   // Toggle un équipement dans la sélection
   const toggleAmenity = (amenityId) => {
@@ -37,17 +63,21 @@ const PropertyAmenitiesForm = ({ selectedAmenities = [], updateAmenities, amenit
   };
   
   // Filtrer les équipements selon la recherche
-  const filteredAmenities = amenitiesList.filter(amenity => 
-    amenity.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
-  // Trier les équipements par catégorie
-  const getAmenitiesByCategory = (categoryId) => {
-    if (searchTerm) {
-      return filteredAmenities.filter(amenity => amenity.category === categoryId);
+  const getFilteredAmenities = (categoryId) => {
+    const categoryAmenities = categorizedAmenities[categoryId] || [];
+    
+    if (!searchTerm) {
+      return categoryAmenities;
     }
-    return amenitiesList.filter(amenity => amenity.category === categoryId);
+    
+    return categoryAmenities.filter(amenity => 
+      amenity.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
   };
+  
+  // Vérifier si aucun équipement ne correspond à la recherche
+  const noSearchResults = searchTerm && 
+    categories.every(category => getFilteredAmenities(category.id).length === 0);
   
   return (
     <div className="space-y-6">
@@ -81,13 +111,18 @@ const PropertyAmenitiesForm = ({ selectedAmenities = [], updateAmenities, amenit
         {selectedAmenities.length} équipement{selectedAmenities.length !== 1 ? 's' : ''} sélectionné{selectedAmenities.length !== 1 ? 's' : ''}
       </div>
       
+      {/* Debugging - Afficher le nombre total d'équipements reçus */}
+      <div className="text-xs text-gray-400">
+        {amenitiesList.length} équipements disponibles au total
+      </div>
+      
       {/* Liste des équipements par catégorie */}
       <div className="space-y-6">
         {categories.map(category => {
-          const categoryAmenities = getAmenitiesByCategory(category.id);
+          const filteredAmenities = getFilteredAmenities(category.id);
           
           // Ne pas afficher les catégories vides lors d'une recherche
-          if (searchTerm && categoryAmenities.length === 0) {
+          if (searchTerm && filteredAmenities.length === 0) {
             return null;
           }
           
@@ -97,37 +132,36 @@ const PropertyAmenitiesForm = ({ selectedAmenities = [], updateAmenities, amenit
                 {category.icon} {category.name}
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {categoryAmenities.map(amenity => (
-                  <motion.div
-                    key={amenity.id}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => toggleAmenity(amenity.id)}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedAmenities.includes(amenity.id)
-                        ? 'border-primary-500 bg-primary-50'
-                        : 'border-gray-200 hover:border-primary-300'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <div 
-                        className={`w-5 h-5 rounded flex items-center justify-center mr-3 ${
-                          selectedAmenities.includes(amenity.id)
-                            ? 'bg-primary-500 text-white'
-                            : 'border border-gray-300'
-                        }`}
-                      >
-                        {selectedAmenities.includes(amenity.id) && <FiCheck size={14} />}
+              {filteredAmenities.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {filteredAmenities.map(amenity => (
+                    <motion.div
+                      key={amenity.id}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => toggleAmenity(amenity.id)}
+                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selectedAmenities.includes(amenity.id)
+                          ? 'border-primary-500 bg-primary-50'
+                          : 'border-gray-200 hover:border-primary-300'
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <div 
+                          className={`w-5 h-5 rounded flex items-center justify-center mr-3 ${
+                            selectedAmenities.includes(amenity.id)
+                              ? 'bg-primary-500 text-white'
+                              : 'border border-gray-300'
+                          }`}
+                        >
+                          {selectedAmenities.includes(amenity.id) && <FiCheck size={14} />}
+                        </div>
+                        <span>{amenity.name}</span>
                       </div>
-                      <span>{amenity.name}</span>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-              
-              {/* Message si aucun équipement dans la catégorie */}
-              {categoryAmenities.length === 0 && (
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
                 <p className="text-gray-500 text-sm italic">
                   Aucun équipement dans cette catégorie
                 </p>
@@ -138,10 +172,21 @@ const PropertyAmenitiesForm = ({ selectedAmenities = [], updateAmenities, amenit
       </div>
       
       {/* Message si aucun résultat de recherche */}
-      {searchTerm && filteredAmenities.length === 0 && (
+      {noSearchResults && (
         <div className="text-center py-8">
           <p className="text-gray-500">
             Aucun équipement ne correspond à votre recherche "{searchTerm}"
+          </p>
+        </div>
+      )}
+      
+      {/* Si aucun équipement n'est disponible */}
+      {amenitiesList.length === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800">
+          <h4 className="font-medium mb-2">Aucun équipement disponible</h4>
+          <p className="text-sm">
+            Il semble qu'aucun équipement n'ait été trouvé. Veuillez vérifier la connexion 
+            avec le serveur ou contacter l'administrateur.
           </p>
         </div>
       )}

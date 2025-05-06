@@ -133,28 +133,39 @@ const PropertyEditor = () => {
   // Chargement des données de référence (villes, quartiers, équipements)
   useEffect(() => {
     const loadReferenceData = async () => {
-      try {
-        // Charger les équipements
-        const amenitiesResponse = await api.get('/properties/amenities/');
-        if (amenitiesResponse.data.results) {
-          setAmenitiesList(amenitiesResponse.data.results);
-        } else if (Array.isArray(amenitiesResponse.data)) {
-          setAmenitiesList(amenitiesResponse.data);
-        }
-        
-        // Charger les villes
-        const citiesResponse = await api.get('/properties/cities/');
-        if (citiesResponse.data.results) {
-          setCities(citiesResponse.data.results);
-        } else if (Array.isArray(citiesResponse.data)) {
-          setCities(citiesResponse.data);
-        }
-        
-      } catch (err) {
-        console.error('Erreur lors du chargement des données de référence:', err);
-        notifyError('Une erreur est survenue lors du chargement des données de référence.');
-      }
-    };
+        try {
+            // Charger les équipements
+            const amenitiesResponse = await api.get('/properties/amenities/');
+            console.log('Réponse API équipements:', amenitiesResponse.data); // Ajouter ce log pour déboguer
+            
+            if (amenitiesResponse.data.results) {
+              setAmenitiesList(amenitiesResponse.data.results);
+            } else if (Array.isArray(amenitiesResponse.data)) {
+              setAmenitiesList(amenitiesResponse.data);
+            } else {
+              // Si les données ne sont pas comme prévu, initialiser avec un tableau vide
+              console.error('Format de données inattendu pour les équipements:', amenitiesResponse.data);
+              setAmenitiesList([]);
+            }
+            
+            // Charger les villes
+            const citiesResponse = await api.get('/properties/cities/');
+            console.log('Réponse API villes:', citiesResponse.data); // Ajouter ce log pour déboguer
+            
+            if (citiesResponse.data.results) {
+              setCities(citiesResponse.data.results);
+            } else if (Array.isArray(citiesResponse.data)) {
+              setCities(citiesResponse.data);
+            } else {
+              console.error('Format de données inattendu pour les villes:', citiesResponse.data);
+              setCities([]);
+            }
+            
+          } catch (err) {
+            console.error('Erreur lors du chargement des données de référence:', err.response?.data || err);
+            notifyError('Une erreur est survenue lors du chargement des données de référence.');
+          }
+        };
     
     loadReferenceData();
   }, [notifyError]);

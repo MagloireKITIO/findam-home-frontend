@@ -38,12 +38,15 @@ const LandingPage = () => {
             limit: 6,
           }
         });
-        
-        // Récupérer les villes avec des propriétés
         const citiesResponse = await api.get('/properties/cities/');
+        // Récupérer les villes avec des propriétés
+        const properties = propertiesResponse.data.results || propertiesResponse.data || [];
+        const cities = citiesResponse.data.results || citiesResponse.data || [];
         
-        setPopularProperties(propertiesResponse.data.results || []);
-        setFeaturedCities(citiesResponse.data || []);
+        console.log('Propriétés récupérées:', properties); // Pour déboguer
+
+        setPopularProperties(properties);
+        setFeaturedCities(cities);
         
         setLoading(false);
       } catch (err) {
