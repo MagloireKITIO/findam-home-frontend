@@ -18,9 +18,20 @@ const Login = () => {
   // Rediriger si déjà connecté
   useEffect(() => {
     if (currentUser) {
-      // Rediriger vers la page souhaitée ou par défaut vers l'accueil
-      const from = location.state?.from?.pathname || '/';
-      navigate(from, { replace: true });
+      // Rediriger vers la page souhaitée avec l'état complet
+      const from = location.state?.from || '/';
+      
+      // Si from est une chaîne (chemin simple), naviguer normalement
+      if (typeof from === 'string') {
+        navigate(from, { replace: true });
+      } 
+      // Si from est un objet (chemin avec state), préserver l'état
+      else {
+        navigate(from.pathname + (from.search || ''), { 
+          replace: true,
+          state: location.state
+        });
+      }
     }
   }, [currentUser, navigate, location]);
 

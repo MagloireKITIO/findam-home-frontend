@@ -47,7 +47,7 @@ const PropertyReviews = () => {
       
       try {
         // Charger les détails de la propriété
-        const propertyResponse = await api.get(`/properties/${id}/`);
+        const propertyResponse = await api.get(`/properties/properties/${id}/`);
         setProperty(propertyResponse.data);
         
         // Préparer les paramètres de requête pour les avis

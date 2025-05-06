@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Fonction de connexion
-  const login = async (email, password) => {
+  const login = async (email, password, redirectPath) => {
     setAuthError(null);
     try {
       const response = await api.post('/auth/token/', { email, password });

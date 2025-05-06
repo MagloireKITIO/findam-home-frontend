@@ -63,7 +63,19 @@ const BookingNew = () => {
     // Vérifier si l'utilisateur est connecté
     if (!currentUser) {
       notifyError('Veuillez vous connecter pour effectuer une réservation');
-      navigate('/login', { state: { from: '/booking/new' } });
+      navigate('/login', { 
+        state: { 
+          from: {
+            pathname: '/booking/new',
+            search: location.search
+          },
+          propertyId,
+          checkIn,
+          checkOut,
+          guests,
+          price
+        } 
+      });
       return;
     }
 
@@ -73,12 +85,12 @@ const BookingNew = () => {
       setError(null);
 
       try {
-        const response = await api.get(`/properties/${propertyId}/`);
+        const response = await api.get(`/properties/properties/${propertyId}/`);
         setProperty(response.data);
 
         // Si nous n'avons pas les informations de prix depuis l'état
         if (!price) {
-          const availabilityResponse = await api.get(`/properties/${propertyId}/check_availability/`, {
+          const availabilityResponse = await api.get(`/properties/properties/${propertyId}/check_availability/`, {
             params: {
               start_date: checkIn,
               end_date: checkOut

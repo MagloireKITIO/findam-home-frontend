@@ -57,7 +57,7 @@ const PropertyDetail = () => {
       setError(null);
 
       try {
-        const response = await api.get(`/properties/${id}/`);
+        const response = await api.get(`/properties/properties/${id}/`);
         setProperty(response.data);
       } catch (err) {
         console.error('Erreur lors du chargement de la propriété:', err);
@@ -80,7 +80,7 @@ const PropertyDetail = () => {
       if (!dateRange.checkIn || !dateRange.checkOut) return;
 
       try {
-        const response = await api.get(`/properties/${id}/check_availability/`, {
+        const response = await api.get(`/properties/properties/${id}/check_availability/`, {
           params: {
             start_date: dateRange.checkIn,
             end_date: dateRange.checkOut
