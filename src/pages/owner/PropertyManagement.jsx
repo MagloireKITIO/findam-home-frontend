@@ -113,28 +113,34 @@ const PropertyManagement = () => {
   const togglePropertyVisibility = async (propertyId, currentStatus) => {
     try {
       if (currentStatus) {
-        // Dépublier
+        // Si actuellement publié, dépublier
         await api.post(`/properties/properties/${propertyId}/unpublish/`);
         success('Logement dépublié avec succès');
       } else {
-        // Publier
+        // Si actuellement non publié, publier
         await api.post(`/properties/properties/${propertyId}/publish/`);
         success('Logement publié avec succès');
       }
       
-      // Mettre à jour l'état local
-      setProperties(prev => prev.map(property => 
-        property.id === propertyId 
-          ? { ...property, is_published: !currentStatus }
-          : property
-      ));
+      // Recharger la liste des propriétés pour refléter les changements
+      loadProperties();
     } catch (err) {
-      console.error('Erreur lors du changement de visibilité:', err);
-      notifyError(
-        currentStatus 
-          ? 'Une erreur est survenue lors de la dépublication du logement' 
-          : 'Une erreur est survenue lors de la publication du logement'
-      );
+      console.error('Erreur:', err);
+      notifyError('Une erreur est survenue');
+    }
+  };
+  
+  // Ajoutez cette fonction pour recharger les propriétés
+  const loadProperties = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/properties/properties/');
+      setProperties(response.data.results || response.data || []);
+      setFilteredProperties(response.data.results || response.data || []);
+    } catch (err) {
+      console.error('Erreur:', err);
+    } finally {
+      setLoading(false);
     }
   };
   
