@@ -41,15 +41,19 @@ const PropertyLocationForm = ({ formData, updateFormData, updateField, cities = 
   // Composant pour gérer les événements de la carte
   const LocationMarker = () => {
     useMapEvents({
-      click(e) {
-        const { lat, lng } = e.latlng;
-        setMarkerPosition([lat, lng]);
-        updateFormData({
-          latitude: lat,
-          longitude: lng
-        });
-      }
-    });
+        click(e) {
+          const { lat, lng } = e.latlng;
+          // Formatter et limiter les coordonnées pour respecter la contrainte max_digits=9
+          const formattedLat = parseFloat(parseFloat(lat).toFixed(9));
+          const formattedLng = parseFloat(parseFloat(lng).toFixed(9));
+          
+          setMarkerPosition([formattedLat, formattedLng]);
+          updateFormData({
+            latitude: formattedLat,
+            longitude: formattedLng
+          });
+        }
+      });
 
     return markerPosition ? (
       <Marker 

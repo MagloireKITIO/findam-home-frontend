@@ -281,18 +281,23 @@ const PropertyEditor = () => {
       if (uploadedImages.length > 0) {
         for (const image of uploadedImages) {
           const imageFormData = new FormData();
-          imageFormData.append('property', propertyId);
+          imageFormData.append('property', propertyId.toString()); // Assurez-vous que c'est bien une chaîne
           imageFormData.append('image', image.file);
-          imageFormData.append('is_main', image.isMain);
+          imageFormData.append('is_main', image.isMain ? 'true' : 'false'); // Convertir boolean en string
           imageFormData.append('caption', image.caption || '');
           
-          await api.post('/properties/images/', imageFormData);
+          try {
+            await api.post('/properties/images/', imageFormData);
+          } catch (err) {
+            console.error('Erreur lors de l\'upload de l\'image:', err.response?.data || err);
+            // Continuer avec les autres images même si l'une échoue
+          }
         }
       }
       
       // Traiter les remises pour les longs séjours
       if (propertyData.long_stay_discounts.length > 0) {
-        await api.post(`/properties/properties/${propertyId}/`, {
+        await api.patch(`/properties/properties/${propertyId}/`, {
           long_stay_discounts: propertyData.long_stay_discounts
         });
       }

@@ -181,6 +181,11 @@ export const AuthProvider = ({ children }) => {
     return !!currentUser?.is_verified;
   };
 
+  const isVerificationPending = () => {
+    return currentUser?.profile?.verification_status === 'pending';
+  };
+  
+
   // Valeur du contexte
   const value = {
     currentUser,
@@ -195,6 +200,7 @@ export const AuthProvider = ({ children }) => {
     isOwner,
     isTenant,
     isVerified,
+    isVerificationPending,
   };
 
   return (
