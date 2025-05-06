@@ -43,11 +43,13 @@ const PropertyManagement = () => {
         setError(null);
         
         const response = await api.get('/properties/properties/', {
+            
           params: {
             is_owner: true,
             ordering: sortDirection === 'asc' ? sortBy : `-${sortBy}`
           }
         });
+        console.log('Propriétés chargées:', response.data);
         
         if (response.data.results) {
           setProperties(response.data.results);
@@ -122,7 +124,24 @@ const PropertyManagement = () => {
         success('Logement publié avec succès');
       }
       
-      // Recharger la liste des propriétés pour refléter les changements
+      // Mettre à jour directement l'état local pour refléter le changement immédiatement
+      setProperties(prevProperties => 
+        prevProperties.map(property => 
+          property.id === propertyId 
+            ? { ...property, is_published: !currentStatus } 
+            : property
+        )
+      );
+      
+      setFilteredProperties(prevProperties => 
+        prevProperties.map(property => 
+          property.id === propertyId 
+            ? { ...property, is_published: !currentStatus } 
+            : property
+        )
+      );
+      
+      // Recharger la liste des propriétés pour s'assurer que tous les changements sont reflétés
       loadProperties();
     } catch (err) {
       console.error('Erreur:', err);

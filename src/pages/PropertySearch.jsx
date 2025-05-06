@@ -158,22 +158,52 @@ const PropertySearch = () => {
         if (searchParams.bathrooms) apiParams.min_bathrooms = searchParams.bathrooms;
         if (searchParams.amenities.length > 0) apiParams.amenities = searchParams.amenities.join(',');
         
-        // Appel à l'API
-        const response = await api.get('/properties/', { params: apiParams });
+        // Appel à l'API avec timeout et retry
+        let retryCount = 0;
+        const maxRetries = 3;
+        let success = false;
         
-        if (response.data.results) {
-          setProperties(response.data.results);
-          setTotalProperties(response.data.count);
-        } else if (Array.isArray(response.data)) {
-          setProperties(response.data);
-          setTotalProperties(response.data.length);
-        } else {
-          setProperties([]);
-          setTotalProperties(0);
+        while (!success && retryCount < maxRetries) {
+          try {
+            const response = await api.get('/properties/', { 
+              params: apiParams,
+              timeout: 10000 // 10 secondes timeout
+            });
+            
+            if (response.data.results) {
+              setProperties(response.data.results);
+              setTotalProperties(response.data.count);
+            } else if (Array.isArray(response.data)) {
+              setProperties(response.data);
+              setTotalProperties(response.data.length);
+            } else {
+              setProperties([]);
+              setTotalProperties(0);
+            }
+            
+            success = true;
+          } catch (err) {
+            retryCount++;
+            
+            // Si c'est une erreur 429 (too many requests), attendons un peu plus longtemps avant de réessayer
+            if (err.response && err.response.status === 429) {
+              console.log(`Limite de requêtes atteinte, nouvelle tentative ${retryCount}/${maxRetries} dans 2 secondes...`);
+              await new Promise(resolve => setTimeout(resolve, 2000)); // attendre 2 secondes
+            } else if (retryCount >= maxRetries) {
+              throw err; // Laisser le gestionnaire d'erreurs principal s'en occuper
+            } else {
+              await new Promise(resolve => setTimeout(resolve, 1000)); // attendre 1 seconde
+            }
+          }
         }
       } catch (err) {
         console.error('Erreur lors de la recherche de propriétés:', err);
-        setError('Une erreur est survenue lors de la recherche. Veuillez réessayer.');
+        
+        if (err.response && err.response.status === 429) {
+          setError('Trop de requêtes. Veuillez attendre quelques instants avant de réessayer.');
+        } else {
+          setError('Une erreur est survenue lors de la recherche. Veuillez réessayer.');
+        }
       } finally {
         setLoading(false);
       }

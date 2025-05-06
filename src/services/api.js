@@ -37,6 +37,11 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
+    // Si aucune configuration de requête n'est disponible, rejeter immédiatement
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
+    
     // Si l'erreur est 401 (Unauthorized) et que nous n'avons pas déjà essayé de rafraîchir le token
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
@@ -68,6 +73,35 @@ api.interceptors.response.use(
         localStorage.removeItem('refresh_token');
         window.location.href = '/login';
         return Promise.reject(error);
+      }
+    }
+    
+    // Gestion des erreurs 429 (Too Many Requests)
+    if (error.response?.status === 429) {
+      // Si la requête n'a pas encore été retentée trop de fois
+      if (!originalRequest._retryCount || originalRequest._retryCount < 3) {
+        // Initialiser ou incrémenter le compteur de tentatives
+        originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
+        
+        // Attendre un délai exponentiel avant de réessayer
+        const delay = Math.pow(2, originalRequest._retryCount) * 1000;
+        console.log(`Limite de requêtes atteinte, nouvelle tentative dans ${delay/1000} secondes...`);
+        
+        return new Promise(resolve => {
+          setTimeout(() => {
+            console.log(`Nouvelle tentative ${originalRequest._retryCount}...`);
+            resolve(api(originalRequest));
+          }, delay);
+        });
+      }
+    }
+    
+    // Si c'est une erreur de timeout ou de réseau, tenter de réessayer
+    if (error.code === 'ECONNABORTED' || !error.response) {
+      if (!originalRequest._networkRetry) {
+        originalRequest._networkRetry = true;
+        console.log('Problème de connexion, nouvelle tentative...');
+        return api(originalRequest);
       }
     }
     
