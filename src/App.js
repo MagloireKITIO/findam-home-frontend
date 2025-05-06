@@ -25,19 +25,11 @@ import NotFound from './pages/NotFound';
 import OwnerDashboard from './pages/owner/OwnerDashboard';
 import PropertyManagement from './pages/owner/PropertyManagement';
 import PropertyEditor from './pages/owner/PropertyEditor';
-
-// Pour l'instant, importons des composants temporaires pour les routes à développer plus tard
-const TemporaryPage = ({ title }) => (
-  <div className="min-h-screen flex items-center justify-center">
-    <h1 className="text-2xl font-bold">{title} - À développer prochainement</h1>
-  </div>
-);
-
-// Pages qui seront développées dans les prochaines étapes
-const BookingManagement = () => <TemporaryPage title="Gestion des réservations" />;
-const PromoCodeCreation = () => <TemporaryPage title="Création de codes promo" />;
-const OwnerSubscription = () => <TemporaryPage title="Abonnement propriétaire" />;
-const OwnerSubscriptionPayment = () => <TemporaryPage title="Paiement de l'abonnement" />;
+import BookingManagement from './pages/owner/BookingManagement';
+import BookingCalendarPage from './pages/owner/BookingCalendarPage';
+import PromoCodeManagement from './pages/owner/PromoCodeManagement';
+import OwnerSubscription from './pages/owner/OwnerSubscription';
+import OwnerSubscriptionPayment from './pages/owner/OwnerSubscriptionPayment';
 
 function App() {
   return (
@@ -157,10 +149,18 @@ function App() {
               } 
             />
             <Route 
+              path="/owner/calendar" 
+              element={
+                <PrivateRoute requireVerified={true}>
+                  <BookingCalendarPage />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
               path="/owner/promo-codes" 
               element={
                 <PrivateRoute requireVerified={true}>
-                  <PromoCodeCreation />
+                  <PromoCodeManagement />
                 </PrivateRoute>
               } 
             />
