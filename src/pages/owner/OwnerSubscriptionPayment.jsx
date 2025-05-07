@@ -137,58 +137,61 @@ const OwnerSubscriptionPayment = () => {
     try {
       setIsProcessing(true);
       
-      // Initialiser le paiement
-      const response = await api.post(`/accounts/subscriptions/${id}/initiate_payment/`, {
-        payment_method: selectedPaymentMethod,
-        // Ajouter les détails de paiement selon la méthode
-        ...((selectedPaymentMethod === 'mobile_money') && { 
-          phone_number: paymentForm.phoneNumber,
-          provider: paymentForm.mobileMoneyProvider 
-        }),
-        ...((selectedPaymentMethod === 'credit_card') && { 
-          card_details: {
-            number: paymentForm.cardNumber,
-            expiry: paymentForm.cardExpiry,
-            cvc: paymentForm.cardCvc,
-            holder_name: paymentForm.cardHolder
-          }
-        }),
-        ...((selectedPaymentMethod === 'bank_transfer') && { 
-            bank_details: {
-              bank_name: paymentForm.bankName,
-              account_name: paymentForm.accountName,
-              account_number: paymentForm.accountNumber
-            }
-          })
-        });
+      // Préparer les données de paiement selon la méthode choisie
+      let paymentData = {
+        payment_method: selectedPaymentMethod
+      };
+      
+      // Ajouter les détails spécifiques selon la méthode de paiement
+      if (selectedPaymentMethod === 'mobile_money') {
+        paymentData.phone_number = paymentForm.phoneNumber;
+        paymentData.mobile_operator = paymentForm.mobileMoneyProvider; // orange, mtn ou mobile_money
+      }
+      
+      // Initialiser le paiement via l'API
+      const response = await api.post(`/accounts/subscriptions/${id}/initiate_payment/`, paymentData);
+      
+      // Si la réponse contient une URL de paiement, rediriger vers cette URL
+      if (response.data.payment_url) {
+        // On peut soit ouvrir dans un nouvel onglet
+        window.open(response.data.payment_url, '_blank');
         
-        // Si la réponse contient une URL de paiement, rediriger vers cette URL
-        if (response.data.payment_url) {
-          window.location.href = response.data.payment_url;
-          return;
-        }
+        // Ou rediriger directement
+        // window.location.href = response.data.payment_url;
         
-        // Sinon, afficher un message de succès et vérifier le statut du paiement
-        success('Demande de paiement envoyée avec succès');
+        // Mettre à jour l'état pour afficher les instructions
         setPaymentStatus('pending');
         
-        // Vérifier le statut du paiement après quelques secondes
+        // Démarrer la vérification périodique du statut
         setTimeout(checkPaymentStatus, 5000);
         
-      } catch (err) {
-        console.error('Erreur lors de l\'initiation du paiement:', err);
-        notifyError('Une erreur est survenue lors de l\'initiation du paiement');
-      } finally {
-        setIsProcessing(false);
+        success('Redirection vers la page de paiement...');
+        return;
       }
-    };
+      
+      // Si pas d'URL mais succès, afficher un message
+      if (response.data.success) {
+        success('Demande de paiement envoyée avec succès');
+        setPaymentStatus('pending');
+        setTimeout(checkPaymentStatus, 5000);
+      } else {
+        notifyError(response.data.error || 'Une erreur est survenue lors de l\'initialisation du paiement');
+      }
+      
+    } catch (err) {
+      console.error('Erreur lors de l\'initialisation du paiement:', err);
+      notifyError(err.response?.data?.detail || 'Une erreur est survenue lors de l\'initialisation du paiement');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
     
     // Vérifier le statut du paiement
     const checkPaymentStatus = async () => {
       try {
         const response = await api.get(`/accounts/subscriptions/${id}/check_payment_status/`);
         
-        if (response.data.status === 'success') {
+        if (response.data.status === 'completed' || response.data.subscription_status === 'active') {
           setPaymentStatus('success');
           success('Paiement effectué avec succès');
           
@@ -199,7 +202,11 @@ const OwnerSubscriptionPayment = () => {
             is_active: true
           }));
           
-        } else if (response.data.status === 'pending') {
+          // AJOUTÉ ICI: Arrêter les vérifications futures
+          window.paymentCheckRetries = 999; // Empêche tout appel futur
+          return; // Sortir de la fonction immédiatement
+          
+        } else if (response.data.status === 'pending' || response.data.status === 'processing') {
           setPaymentStatus('pending');
           
           // Vérifier à nouveau après quelques secondes
@@ -208,10 +215,25 @@ const OwnerSubscriptionPayment = () => {
         } else if (response.data.status === 'failed') {
           setPaymentStatus('failed');
           notifyError('Le paiement a échoué. Veuillez réessayer.');
+        } else {
+          // Pour tout autre statut, afficher un message générique
+          notifyError('Une erreur est survenue lors de la vérification du statut du paiement.');
         }
         
       } catch (err) {
         console.error('Erreur lors de la vérification du statut du paiement:', err);
+        
+        // En cas d'erreur, on peut quand même réessayer quelques fois
+        if (!window.paymentCheckRetries) {
+          window.paymentCheckRetries = 1;
+        } else {
+          window.paymentCheckRetries++;
+        }
+        
+        // Limiter à 3 tentatives en cas d'erreur
+        if (window.paymentCheckRetries <= 3) {
+          setTimeout(checkPaymentStatus, 5000);
+        }
       }
     };
     
@@ -257,8 +279,11 @@ const OwnerSubscriptionPayment = () => {
               >
                 <option value="orange">Orange Money</option>
                 <option value="mtn">MTN Mobile Money</option>
-                <option value="other">Autre</option>
+                <option value="mobile_money">Détection automatique</option>
               </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Sélectionnez votre opérateur pour un traitement plus rapide ou "Détection automatique" pour laisser le système déterminer l'opérateur.
+              </p>
             </div>
             
             <div className="mb-4">
@@ -270,9 +295,12 @@ const OwnerSubscriptionPayment = () => {
                 name="phoneNumber"
                 value={paymentForm.phoneNumber}
                 onChange={handlePaymentFormChange}
-                placeholder="Ex: +237612345678"
+                placeholder="Ex: 6XXXXXXXX"
                 required
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Entrez votre numéro sans le code pays (ex: 656789012)
+              </p>
             </div>
             
             <div className="bg-yellow-50 p-4 rounded-lg mb-6">
@@ -284,12 +312,45 @@ const OwnerSubscriptionPayment = () => {
                   <h4 className="text-sm font-medium text-yellow-800 mb-1">Instructions</h4>
                   <ol className="list-decimal list-inside text-sm text-yellow-700 space-y-1">
                     <li>Vous recevrez une notification sur votre téléphone après avoir cliqué sur "Payer maintenant"</li>
-                    <li>Confirmez le paiement sur votre téléphone</li>
+                    <li>Confirmez le paiement en saisissant votre code secret {paymentForm.mobileMoneyProvider === 'orange' ? 'Orange Money' : paymentForm.mobileMoneyProvider === 'mtn' ? 'MTN Mobile Money' : 'Mobile Money'}</li>
                     <li>Votre abonnement sera activé automatiquement après confirmation du paiement</li>
                   </ol>
                 </div>
               </div>
             </div>
+            
+            {/* Afficher des instructions spécifiques selon l'opérateur */}
+            {paymentForm.mobileMoneyProvider === 'orange' && (
+              <div className="bg-orange-50 p-4 rounded-lg mb-4 border border-orange-200">
+                <div className="flex items-start">
+                  <div className="w-6 h-6 rounded-full bg-orange-500 flex-shrink-0 flex items-center justify-center text-white mr-3">
+                    <span className="text-sm font-bold">OM</span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-orange-800">Orange Money</h4>
+                    <p className="text-xs text-orange-700 mt-1">
+                      Composez #150# sur votre téléphone pour approuver le paiement si vous ne recevez pas de notification automatique.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {paymentForm.mobileMoneyProvider === 'mtn' && (
+              <div className="bg-yellow-50 p-4 rounded-lg mb-4 border border-yellow-200">
+                <div className="flex items-start">
+                  <div className="w-6 h-6 rounded-full bg-yellow-500 flex-shrink-0 flex items-center justify-center text-white mr-3">
+                    <span className="text-sm font-bold">MM</span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-yellow-800">MTN Mobile Money</h4>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      Vérifiez votre téléphone pour approuver la transaction. Composez *126# si vous ne recevez pas de notification automatique.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       } else if (selectedPaymentMethod === 'credit_card') {

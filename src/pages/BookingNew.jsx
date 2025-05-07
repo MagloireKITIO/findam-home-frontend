@@ -51,6 +51,7 @@ const BookingNew = () => {
   const [bookingInProgress, setBookingInProgress] = useState(false);
   const [bookingComplete, setBookingComplete] = useState(false);
   const [bookingResult, setBookingResult] = useState(null);
+  const [mobileOperator, setMobileOperator] = useState('mobile_money');
 
   // Vérifier si les données nécessaires sont présentes
   useEffect(() => {
@@ -176,14 +177,14 @@ const BookingNew = () => {
       notifyError('Veuillez accepter les conditions générales');
       return;
     }
-
+  
     if (bookingData.paymentMethod === 'mobile_money' && !bookingData.mobileMoneyNumber) {
       notifyError('Veuillez saisir votre numéro de mobile money');
       return;
     }
-
+  
     setBookingInProgress(true);
-
+  
     try {
       // Création de la réservation
       const bookingResponse = await postData('/bookings/bookings/', {
@@ -192,37 +193,88 @@ const BookingNew = () => {
         check_out_date: checkOut,
         guests_count: guests,
         special_requests: bookingData.specialRequests,
-        promo_code_value: bookingData.promoCode || null
+        promo_code: bookingData.promoCode || null
       });
-
+  
       // Si la réservation est créée, initier le paiement
       if (bookingResponse) {
-        const paymentResponse = await postData(`/bookings/bookings/${bookingResponse.id}/initiate_payment/`, {
-          payment_method: bookingData.paymentMethod,
-          mobile_number: bookingData.mobileMoneyNumber
-        });
-
+        // Préparer les données de paiement selon la méthode choisie
+        const paymentData = {
+          payment_method: bookingData.paymentMethod
+        };
+        
+        // Ajouter les détails spécifiques selon la méthode de paiement
+        if (bookingData.paymentMethod === 'mobile_money') {
+          paymentData.phone_number = bookingData.mobileMoneyNumber;
+          paymentData.mobile_operator = mobileOperator; // Utiliser l'opérateur sélectionné
+        }
+  
+        const paymentResponse = await postData(`/bookings/bookings/${bookingResponse.id}/initiate_payment/`, paymentData);
+  
         setBookingComplete(true);
         setBookingResult({
           bookingId: bookingResponse.id,
           paymentUrl: paymentResponse.payment_url,
-          transactionId: paymentResponse.transaction_id
+          transactionId: paymentResponse.transaction_id,
+          notchpayReference: paymentResponse.notchpay_reference
         });
-
-        // Redirection vers la page de paiement externe si nécessaire
+  
+        // Redirection vers la page de paiement NotchPay
         if (paymentResponse.payment_url) {
           window.open(paymentResponse.payment_url, '_blank');
         }
-
+  
         success('Réservation créée avec succès. Veuillez compléter le paiement.');
+        
+        // Vérifier périodiquement le statut du paiement
+        checkPaymentStatus(bookingResponse.id);
       }
     } catch (err) {
-        console.error('Erreur lors de la création de la réservation:', err);
-        notifyError(err.response?.data?.detail || 'Une erreur est survenue lors de la création de la réservation');
-      } finally {
-        setBookingInProgress(false);
+      console.error('Erreur lors de la création de la réservation:', err);
+      notifyError(err.response?.data?.detail || 'Une erreur est survenue lors de la création de la réservation');
+    } finally {
+      setBookingInProgress(false);
+    }
+  };
+
+  // Ajoutez cette fonction pour vérifier périodiquement le statut du paiement
+const checkPaymentStatus = (bookingId) => {
+  // Créer une variable pour suivre le nombre de tentatives
+  if (!window.paymentCheckRetries) {
+    window.paymentCheckRetries = 0;
+  }
+  
+  // Limite à 10 vérifications (50 secondes)
+  if (window.paymentCheckRetries >= 10) {
+    return;
+  }
+  
+  // Incrémenter le compteur
+  window.paymentCheckRetries++;
+  
+  // Vérifier le statut après 5 secondes
+  setTimeout(async () => {
+    try {
+      const statusResponse = await fetchData(`/bookings/bookings/${bookingId}/check_payment_status/`);
+      
+      if (statusResponse.status === 'completed' || statusResponse.payment_status === 'paid') {
+        // Paiement réussi
+        success('Paiement confirmé ! Votre réservation est confirmée.');
+        // Mise à jour de l'état si nécessaire...
+      } else if (statusResponse.status === 'failed') {
+        // Paiement échoué
+        notifyError('Le paiement a échoué. Veuillez réessayer.');
+      } else {
+        // Toujours en attente, vérifier à nouveau
+        checkPaymentStatus(bookingId);
       }
-    };
+    } catch (error) {
+      console.error('Erreur lors de la vérification du statut du paiement:', error);
+      // En cas d'erreur, on continue à vérifier
+      checkPaymentStatus(bookingId);
+    }
+  }, 5000); // Vérifier toutes les 5 secondes
+};
   
     // Procéder à l'étape suivante
     const nextStep = () => {
@@ -652,19 +704,71 @@ const BookingNew = () => {
                             </label>
                           </div>
                           
+                          {/* Sélection de l'opérateur Mobile Money */}
                           {bookingData.paymentMethod === 'mobile_money' && (
                             <div className="mt-4">
-                              <Input
-                                label="Numéro Mobile Money"
-                                name="mobileMoneyNumber"
-                                value={bookingData.mobileMoneyNumber}
-                                onChange={handleInputChange}
-                                placeholder="Ex: 6XXXXXXXX"
-                                required
-                              />
-                              <div className="text-sm text-gray-600 mt-2">
-                                <p>Opérateurs acceptés: Orange Money, MTN Mobile Money, etc.</p>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Opérateur Mobile Money
+                              </label>
+                              <div className="grid grid-cols-3 gap-2 mt-2">
+                                <div 
+                                  className={`
+                                    border rounded-lg p-3 cursor-pointer text-center transition-all
+                                    ${mobileOperator === 'orange' 
+                                      ? 'border-orange-500 bg-orange-50 text-orange-700' 
+                                      : 'border-gray-300 hover:border-orange-300'}
+                                  `}
+                                  onClick={() => setMobileOperator('orange')}
+                                >
+                                  <div className="flex flex-col items-center">
+                                    <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center mb-2">
+                                      <span className="text-orange-700 font-semibold">OM</span>
+                                    </div>
+                                    <span className="text-sm">Orange Money</span>
+                                  </div>
+                                </div>
+                                
+                                <div 
+                                  className={`
+                                    border rounded-lg p-3 cursor-pointer text-center transition-all
+                                    ${mobileOperator === 'mtn' 
+                                      ? 'border-yellow-500 bg-yellow-50 text-yellow-700' 
+                                      : 'border-gray-300 hover:border-yellow-300'}
+                                  `}
+                                  onClick={() => setMobileOperator('mtn')}
+                                >
+                                  <div className="flex flex-col items-center">
+                                    <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center mb-2">
+                                      <span className="text-yellow-700 font-semibold">MM</span>
+                                    </div>
+                                    <span className="text-sm">MTN MoMo</span>
+                                  </div>
+                                </div>
+                                
+                                <div 
+                                  className={`
+                                    border rounded-lg p-3 cursor-pointer text-center transition-all
+                                    ${mobileOperator === 'mobile_money' 
+                                      ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                                      : 'border-gray-300 hover:border-blue-300'}
+                                  `}
+                                  onClick={() => setMobileOperator('mobile_money')}
+                                >
+                                  <div className="flex flex-col items-center">
+                                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mb-2">
+                                      <span className="text-blue-700 font-semibold">Auto</span>
+                                    </div>
+                                    <span className="text-sm">Automatique</span>
+                                  </div>
+                                </div>
                               </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {mobileOperator === 'orange' 
+                                  ? "Utilisez votre compte Orange Money pour effectuer le paiement." 
+                                  : mobileOperator === 'mtn'
+                                    ? "Utilisez votre compte MTN Mobile Money pour effectuer le paiement."
+                                    : "La détection automatique déterminera l'opérateur en fonction de votre numéro."}
+                              </p>
                             </div>
                           )}
                         </div>
