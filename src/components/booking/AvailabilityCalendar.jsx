@@ -32,65 +32,77 @@ const AvailabilityCalendar = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   
+  // Log de débogage au montage/démontage
+  useEffect(() => {
+    console.log('AvailabilityCalendar - montage du composant');
+    console.log('Months (nombre de mois à afficher):', months);
+    console.log('PropertyID:', propertyId);
+    console.log('initialStartDate:', initialStartDate);
+    console.log('initialEndDate:', initialEndDate);
+    
+    return () => {
+      console.log('AvailabilityCalendar - démontage du composant');
+    };
+  }, []);
+  
   // Charger les dates indisponibles pour le logement
   useEffect(() => {
     if (!propertyId) return;
     
     const fetchUnavailableDates = async () => {
-        setLoading(true);
-        setError(null);
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Calculer la période pour laquelle charger les dates
+        const today = new Date();
+        const sixMonthsLater = new Date();
+        sixMonthsLater.setMonth(today.getMonth() + 7); // +7 pour avoir une marge
         
-        try {
-          // Calculer la période pour laquelle charger les dates
-          const today = new Date();
-          const sixMonthsLater = new Date();
-          sixMonthsLater.setMonth(today.getMonth() + 7); // +7 pour avoir une marge
-          
-          // Formater les dates pour l'API
-          const startParam = formatDateForAPI(today);
-          const endParam = formatDateForAPI(sixMonthsLater);
-          
-          // Utiliser l'endpoint check_availability qui est accessible publiquement
-          // et qui retourne maintenant toutes les dates indisponibles futures
-          const response = await api.get(`/properties/properties/${propertyId}/check_availability/`, {
-            params: { 
-              start_date: startParam,
-              end_date: endParam
-            }
-          });
-          
-          // Traiter les données de réponse
-          if (response.data) {
-            // Utiliser all_unavailable_dates qui contient toutes les dates indisponibles futures
-            // Ou se rabattre sur unavailable_dates si all_unavailable_dates n'existe pas
-            const unavailableDatesArray = response.data.all_unavailable_dates || 
-                                         response.data.unavailable_dates || 
-                                         [];
-            
-            // Transformer les dates reçues en objets Date
-            const unavailableDateRanges = unavailableDatesArray.map(range => ({
-              startDate: new Date(range.start_date),
-              endDate: new Date(range.end_date),
-              bookingType: range.booking_type || 'unknown'
-            }));
-            
-            setUnavailableDates(unavailableDateRanges);
-            console.log('Dates indisponibles chargées:', unavailableDateRanges.length);
-          } else {
-            // Si la réponse est vide ou ne contient pas les données attendues
-            console.warn('La réponse ne contient pas de dates indisponibles:', response.data);
-            setUnavailableDates([]);
+        // Formater les dates pour l'API
+        const startParam = formatDateForAPI(today);
+        const endParam = formatDateForAPI(sixMonthsLater);
+        
+        // Utiliser l'endpoint check_availability qui est accessible publiquement
+        const response = await api.get(`/properties/properties/${propertyId}/check_availability/`, {
+          params: { 
+            start_date: startParam,
+            end_date: endParam
           }
-        } catch (err) {
-          console.error('Erreur lors du chargement des dates indisponibles:', err);
-          console.error('Détails:', err.response?.data || err.message);
-          setError('Impossible de charger les disponibilités. Veuillez réessayer.');
-          // En cas d'erreur, ne pas bloquer l'utilisation du calendrier
+        });
+        
+        // Traiter les données de réponse
+        if (response.data) {
+          // Utiliser all_unavailable_dates qui contient toutes les dates indisponibles futures
+          // Ou se rabattre sur unavailable_dates si all_unavailable_dates n'existe pas
+          const unavailableDatesArray = response.data.all_unavailable_dates || 
+                                       response.data.unavailable_dates || 
+                                       [];
+          
+          // Transformer les dates reçues en objets Date
+          const unavailableDateRanges = unavailableDatesArray.map(range => ({
+            startDate: new Date(range.start_date),
+            endDate: new Date(range.end_date),
+            bookingType: range.booking_type || 'unknown'
+          }));
+          
+          setUnavailableDates(unavailableDateRanges);
+          console.log('Dates indisponibles chargées:', unavailableDateRanges.length);
+        } else {
+          // Si la réponse est vide ou ne contient pas les données attendues
+          console.warn('La réponse ne contient pas de dates indisponibles:', response.data);
           setUnavailableDates([]);
-        } finally {
-          setLoading(false);
         }
-      };
+      } catch (err) {
+        console.error('Erreur lors du chargement des dates indisponibles:', err);
+        console.error('Détails:', err.response?.data || err.message);
+        setError('Impossible de charger les disponibilités. Veuillez réessayer.');
+        // En cas d'erreur, ne pas bloquer l'utilisation du calendrier
+        setUnavailableDates([]);
+      } finally {
+        setLoading(false);
+      }
+    };
     
     fetchUnavailableDates();
   }, [propertyId]);
@@ -98,19 +110,24 @@ const AvailabilityCalendar = ({
   // Générer les mois du calendrier
   useEffect(() => {
     const generateCalendarMonths = () => {
-      const months = [];
+      const monthsArray = []; // Renommé pour éviter la confusion
       
+      console.log('Génération de', months, 'mois de calendrier');
+      
+      // Utiliser la prop 'months' comme limite de boucle
       for (let i = 0; i < months; i++) {
         const monthDate = new Date(currentMonth);
         monthDate.setMonth(monthDate.getMonth() + i);
-        months.push(generateMonth(monthDate));
+        const generatedMonth = generateMonth(monthDate);
+        monthsArray.push(generatedMonth);
+        console.log('Mois généré:', monthDate.getMonth() + 1, monthDate.getFullYear(), 'avec', generatedMonth.weeks.length, 'semaines');
       }
       
-      setCalendarMonths(months);
+      setCalendarMonths(monthsArray);
     };
     
     generateCalendarMonths();
-  }, [currentMonth, months, unavailableDates]);
+  }, [currentMonth, months, unavailableDates, startDate, endDate]);
   
   // Générer un mois de calendrier
   const generateMonth = (date) => {
@@ -308,6 +325,11 @@ const AvailabilityCalendar = ({
                      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
   const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
   
+  // Si les mois n'ont pas été générés, afficher un message
+  if (calendarMonths.length === 0) {
+    console.warn("Aucun mois n'a été généré pour le calendrier");
+  }
+  
   return (
     <div className="bg-white rounded-lg shadow-md p-4">
       {error && (
@@ -365,7 +387,6 @@ const AvailabilityCalendar = ({
           )}
         </div>
       )}
-      
       {/* Légende du calendrier */}
       <div className="flex justify-start items-center text-xs text-gray-500 mb-2 space-x-4">
         <div className="flex items-center">
@@ -383,55 +404,66 @@ const AvailabilityCalendar = ({
       </div>
       
       {/* Grilles des mois */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {calendarMonths.map((month, monthIndex) => (
-          <div key={monthIndex} className="w-full">
-            <div className="text-center font-medium mb-2">
-              {monthNames[month.date.getMonth()]} {month.date.getFullYear()}
-            </div>
-            
-            {/* Jours de la semaine */}
-            <div className="grid grid-cols-7 mb-1">
-              {dayNames.map((day, index) => (
-                <div key={index} className="text-center text-xs text-gray-500 font-medium py-1">
-                  {day}
-                </div>
-              ))}
-            </div>
-            
-            {/* Jours du mois */}
-            {month.weeks.map((week, weekIndex) => (
-              <div key={weekIndex} className="grid grid-cols-7">
-                {week.map((day, dayIndex) => (
-                  <div
-                    key={dayIndex}
-                    className={`
-                      p-1 relative text-center text-sm 
-                      ${!day.isCurrentMonth ? 'text-gray-300' : 
-                        day.isPast || day.isUnavailable ? 'text-gray-400 bg-gray-100' : 
-                        'text-gray-700 hover:bg-primary-50 cursor-pointer'}
-                      ${day.isToday ? 'border border-primary-500' : ''}
-                      ${day.isSelected ? 'bg-primary-400 text-white hover:bg-primary-500' : ''}
-                      ${day.isSelectionStart ? 'rounded-l-md' : ''}
-                      ${day.isSelectionEnd ? 'rounded-r-md' : ''}
-                      ${day.isHovering ? 'bg-primary-100' : ''}
-                    `}
-                    onClick={() => handleDateClick(day)}
-                    onMouseEnter={() => handleDateHover(day)}
-                  >
-                    <span className={`
-                      ${day.isSelected ? 'font-medium' : ''}
-                      ${day.isUnavailable ? 'line-through' : ''}
-                    `}>
-                      {day.date.getDate()}
-                    </span>
+      {loading ? (
+        <div className="text-center py-4">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-500"></div>
+          <p className="mt-2 text-gray-600">Chargement du calendrier...</p>
+        </div>
+      ) : calendarMonths.length === 0 ? (
+        <div className="text-center py-4 text-gray-500">
+          Impossible de générer le calendrier
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {calendarMonths.map((month, monthIndex) => (
+            <div key={monthIndex} className="w-full">
+              <div className="text-center font-medium mb-2">
+                {monthNames[month.date.getMonth()]} {month.date.getFullYear()}
+              </div>
+              
+              {/* Jours de la semaine */}
+              <div className="grid grid-cols-7 mb-1">
+                {dayNames.map((day, index) => (
+                  <div key={index} className="text-center text-xs text-gray-500 font-medium py-1">
+                    {day}
                   </div>
                 ))}
               </div>
-            ))}
-          </div>
-        ))}
-      </div>
+              
+              {/* Jours du mois */}
+              {month.weeks.map((week, weekIndex) => (
+                <div key={weekIndex} className="grid grid-cols-7">
+                  {week.map((day, dayIndex) => (
+                    <div
+                      key={dayIndex}
+                      className={`
+                        p-1 relative text-center text-sm 
+                        ${!day.isCurrentMonth ? 'text-gray-300' : 
+                          day.isPast || day.isUnavailable ? 'text-gray-400 bg-gray-100' : 
+                          'text-gray-700 hover:bg-primary-50 cursor-pointer'}
+                        ${day.isToday ? 'border border-primary-500' : ''}
+                        ${day.isSelected ? 'bg-primary-400 text-white hover:bg-primary-500' : ''}
+                        ${day.isSelectionStart ? 'rounded-l-md' : ''}
+                        ${day.isSelectionEnd ? 'rounded-r-md' : ''}
+                        ${day.isHovering ? 'bg-primary-100' : ''}
+                      `}
+                      onClick={() => handleDateClick(day)}
+                      onMouseEnter={() => handleDateHover(day)}
+                    >
+                      <span className={`
+                        ${day.isSelected ? 'font-medium' : ''}
+                        ${day.isUnavailable ? 'line-through' : ''}
+                      `}>
+                        {day.date.getDate()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
       
       {/* Instructions */}
       <div className="mt-4 text-sm text-gray-600">
