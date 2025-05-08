@@ -17,6 +17,8 @@ import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import api from '../services/api';
 import useApi from '../hooks/useApi';
+import AvailabilityCalendar from '../components/booking/AvailabilityCalendar';
+
 
 const PropertyDetail = () => {
   const { id } = useParams();
@@ -533,7 +535,7 @@ const PropertyDetail = () => {
           </div>
           {/* Fin de la colonne principale */}
           
-          {/* Début de la colonne latérale (à droite) */}
+           {/* Colonne latérale avec le calendrier amélioré */}
           <div className="md:col-span-1">
             <div className="sticky top-20">
               <div className="bg-white rounded-lg shadow-md p-6">
@@ -551,107 +553,91 @@ const PropertyDetail = () => {
                   )}
                 </div>
                 
-                <form className="mb-6">
-                  <div className="border border-gray-300 rounded-lg overflow-hidden mb-4">
-                    <div className="grid grid-cols-2">
-                      <div className="p-4 border-r border-b">
-                        <label htmlFor="checkIn" className="block text-sm text-gray-600 mb-1">Arrivée</label>
-                        <input
-                          type="date"
-                          id="checkIn"
-                          name="checkIn"
-                          value={dateRange.checkIn}
-                          onChange={handleDateChange}
-                          className="w-full border-none focus:ring-0 p-0 text-gray-900"
-                          min={new Date().toISOString().split('T')[0]}
-                        />
-                      </div>
-                      <div className="p-4 border-b">
-                        <label htmlFor="checkOut" className="block text-sm text-gray-600 mb-1">Départ</label>
-                        <input
-                          type="date"
-                          id="checkOut"
-                          name="checkOut"
-                          value={dateRange.checkOut}
-                          onChange={handleDateChange}
-                          className="w-full border-none focus:ring-0 p-0 text-gray-900"
-                          min={dateRange.checkIn || new Date().toISOString().split('T')[0]}
-                        />
-                      </div>
-                    </div>
-                    <div className="p-4">
-                      <label htmlFor="guests" className="block text-sm text-gray-600 mb-1">Voyageurs</label>
-                      <select
-                        id="guests"
-                        value={dateRange.guests}
-                        onChange={handleGuestsChange}
-                        className="w-full border-none focus:ring-0 p-0 text-gray-900"
-                      >
-                        {[...Array(property.capacity)].map((_, i) => (
-                          <option key={i} value={i + 1}>
-                            {i + 1} {i === 0 ? 'voyageur' : 'voyageurs'}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <Button
-                    type="button"
-                    variant="primary"
-                    fullWidth
-                    size="lg"
-                    onClick={initiateBooking}
-                    disabled={!dateRange.checkIn || !dateRange.checkOut || !priceCalculation.available}
-                  >
-                    Réserver
-                  </Button>
-                </form>
-                
-                {dateRange.checkIn && dateRange.checkOut && (
-                  <div className="mb-6">
-                    {!priceCalculation.available ? (
-                      <div className="text-red-600 text-center p-3 bg-red-50 rounded-lg">
-                        <p>Ce logement n'est pas disponible aux dates sélectionnées.</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="flex justify-between">
-                          <span>{property.price_per_night.toLocaleString()} FCFA x {priceCalculation.nights} nuits</span>
-                          <span>{priceCalculation.basePrice.toLocaleString()} FCFA</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Frais de ménage</span>
-                          <span>{priceCalculation.cleaningFee.toLocaleString()} FCFA</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Frais de service</span>
-                          <span>{priceCalculation.serviceFee.toLocaleString()} FCFA</span>
-                        </div>
-                        {priceCalculation.discount > 0 && (
-                          <div className="flex justify-between text-green-600">
-                            <span>Réduction (séjour longue durée)</span>
-                            <span>-{priceCalculation.discount.toLocaleString()} FCFA</span>
-                          </div>
-                        )}
-                        <div className="border-t pt-3 font-bold flex justify-between">
-                          <span>Total</span>
-                          <span>{priceCalculation.totalPrice.toLocaleString()} FCFA</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                <div className="text-center">
-                  <button
-                    onClick={() => setShowContact(true)}
-                    className="text-primary-600 font-medium"
-                  >
-                    Contacter {property.owner_name}
-                  </button>
+                {/* Calendrier de disponibilité */}
+                <div className="mb-5">
+                  <AvailabilityCalendar
+                    propertyId={id}
+                    initialStartDate={dateRange.checkIn ? new Date(dateRange.checkIn) : null}
+                    initialEndDate={dateRange.checkOut ? new Date(dateRange.checkOut) : null}
+                    onDateRangeChange={(start, end) => {
+                      setDateRange({
+                        ...dateRange,
+                        checkIn: start.toISOString().split('T')[0],
+                        checkOut: end.toISOString().split('T')[0]
+                      });
+                    }}
+                    months={2}
+                  />
                 </div>
+                
+                {/* Sélection du nombre de voyageurs */}
+                <div className="mb-4">
+                  <label htmlFor="guests" className="block text-sm font-medium text-gray-700 mb-1">
+                    Voyageurs
+                  </label>
+                  <select
+                    id="guests"
+                    value={dateRange.guests}
+                    onChange={handleGuestsChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    {[...Array(property.capacity)].map((_, i) => (
+                      <option key={i} value={i + 1}>
+                        {i + 1} {i === 0 ? 'voyageur' : 'voyageurs'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <Button
+                  type="button"
+                  variant="primary"
+                  fullWidth
+                  size="lg"
+                  onClick={initiateBooking}
+                  disabled={!dateRange.checkIn || !dateRange.checkOut || !priceCalculation.available}
+                >
+                  Réserver
+                </Button>
               </div>
+              
+              {dateRange.checkIn && dateRange.checkOut && (
+                <div className="mt-4 bg-white rounded-lg shadow-md p-6">
+                  {!priceCalculation.available ? (
+                    <div className="text-red-600 text-center p-3 bg-red-50 rounded-lg">
+                      <p>Ce logement n'est pas disponible aux dates sélectionnées.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span>{property.price_per_night.toLocaleString()} FCFA x {priceCalculation.nights} nuits</span>
+                        <span>{priceCalculation.basePrice.toLocaleString()} FCFA</span>
+                      </div>
+                      
+                      <div className="flex justify-between">
+                        <span>Frais de ménage</span>
+                        <span>{priceCalculation.cleaningFee.toLocaleString()} FCFA</span>
+                      </div>
+                      
+                      <div className="flex justify-between">
+                        <span>Frais de service</span>
+                        <span>{priceCalculation.serviceFee.toLocaleString()} FCFA</span>
+                      </div>
+                      
+                      {priceCalculation.discount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Réduction</span>
+                          <span>-{priceCalculation.discount.toLocaleString()} FCFA</span>
+                        </div>
+                      )}
+                      <div className="border-t pt-3 font-bold flex justify-between">
+                        <span>Total</span>
+                        <span>{priceCalculation.totalPrice.toLocaleString()} FCFA</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               
               {/* Information sur le dépôt de garantie */}
               {property.security_deposit > 0 && (
@@ -667,6 +653,16 @@ const PropertyDetail = () => {
                   </div>
                 </div>
               )}
+              
+              {/* Contact propriétaire */}
+              <div className="text-center mt-4">
+                <button
+                  onClick={() => setShowContact(true)}
+                  className="text-primary-600 font-medium"
+                >
+                  Contacter {property.owner_name}
+                </button>
+              </div>
             </div>
           </div>
           {/* Fin de la colonne latérale */}

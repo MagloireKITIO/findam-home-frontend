@@ -30,6 +30,8 @@ import BookingCalendarPage from './pages/owner/BookingCalendarPage';
 import PromoCodeManagement from './pages/owner/PromoCodeManagement';
 import OwnerSubscription from './pages/owner/OwnerSubscription';
 import OwnerSubscriptionPayment from './pages/owner/OwnerSubscriptionPayment';
+import SubscriptionSuccess from './pages/owner/SubscriptionSuccess';
+import SubscriptionCancel from './pages/owner/SubscriptionCancel';
 
 function App() {
   return (
@@ -177,6 +179,22 @@ function App() {
               element={
                 <PrivateRoute>
                   <OwnerSubscriptionPayment />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/owner/subscription/success" 
+              element={
+                <PrivateRoute>
+                  <SubscriptionSuccess />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/owner/subscription/cancel" 
+              element={
+                <PrivateRoute>
+                  <SubscriptionCancel />
                 </PrivateRoute>
               } 
             />

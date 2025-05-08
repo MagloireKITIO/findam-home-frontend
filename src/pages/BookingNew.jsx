@@ -124,6 +124,45 @@ const BookingNew = () => {
     }));
   };
 
+  // Vérifier périodiquement le statut du paiement
+const checkPaymentStatus = (bookingId) => {
+  // Créer une variable pour suivre le nombre de tentatives
+  if (!window.paymentCheckRetries) {
+    window.paymentCheckRetries = 0;
+  }
+  
+  // Limite à 10 vérifications (50 secondes)
+  if (window.paymentCheckRetries >= 10) {
+    return;
+  }
+  
+  // Incrémenter le compteur
+  window.paymentCheckRetries++;
+  
+  // Vérifier le statut après 5 secondes
+  setTimeout(async () => {
+    try {
+      const statusResponse = await fetchData(`/bookings/bookings/${bookingId}/check_payment_status/`);
+      
+      if (statusResponse.status === 'completed' || statusResponse.payment_status === 'paid') {
+        // Paiement réussi
+        success('Paiement confirmé ! Votre réservation est confirmée.');
+        // Mise à jour de l'état si nécessaire...
+      } else if (statusResponse.status === 'failed') {
+        // Paiement échoué
+        notifyError('Le paiement a échoué. Veuillez réessayer.');
+      } else {
+        // Toujours en attente, vérifier à nouveau
+        checkPaymentStatus(bookingId);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la vérification du statut du paiement:', error);
+      // En cas d'erreur, on continue à vérifier
+      checkPaymentStatus(bookingId);
+    }
+  }, 5000); // Vérifier toutes les 5 secondes
+};
+
   // Validation du code promo
   const validatePromoCode = async () => {
     if (!bookingData.promoCode.trim()) return;
@@ -196,8 +235,10 @@ const BookingNew = () => {
         promo_code: bookingData.promoCode || null
       });
   
-      // Si la réservation est créée, initier le paiement
-      if (bookingResponse) {
+      // Vérifier explicitement que bookingResponse existe et contient un ID
+      if (bookingResponse && bookingResponse.id) {
+        console.log("Réservation créée avec succès, ID:", bookingResponse.id);
+        
         // Préparer les données de paiement selon la méthode choisie
         const paymentData = {
           payment_method: bookingData.paymentMethod
@@ -206,28 +247,44 @@ const BookingNew = () => {
         // Ajouter les détails spécifiques selon la méthode de paiement
         if (bookingData.paymentMethod === 'mobile_money') {
           paymentData.phone_number = bookingData.mobileMoneyNumber;
-          paymentData.mobile_operator = mobileOperator; // Utiliser l'opérateur sélectionné
+          paymentData.mobile_operator = mobileOperator;
         }
   
-        const paymentResponse = await postData(`/bookings/bookings/${bookingResponse.id}/initiate_payment/`, paymentData);
+        try {
+          const paymentResponse = await postData(`/bookings/bookings/${bookingResponse.id}/initiate_payment/`, paymentData);
   
-        setBookingComplete(true);
-        setBookingResult({
-          bookingId: bookingResponse.id,
-          paymentUrl: paymentResponse.payment_url,
-          transactionId: paymentResponse.transaction_id,
-          notchpayReference: paymentResponse.notchpay_reference
-        });
+          setBookingComplete(true);
+          setBookingResult({
+            bookingId: bookingResponse.id,
+            paymentUrl: paymentResponse.payment_url,
+            transactionId: paymentResponse.transaction_id,
+            notchpayReference: paymentResponse.notchpay_reference
+          });
   
-        // Redirection vers la page de paiement NotchPay
-        if (paymentResponse.payment_url) {
-          window.open(paymentResponse.payment_url, '_blank');
+          // Redirection vers la page de paiement NotchPay
+          if (paymentResponse.payment_url) {
+            window.open(paymentResponse.payment_url, '_blank');
+          }
+  
+          success('Réservation créée avec succès. Veuillez compléter le paiement.');
+          
+          // Vérifier périodiquement le statut du paiement
+          checkPaymentStatus(bookingResponse.id);
+        } catch (paymentErr) {
+          console.error('Erreur lors de l\'initiation du paiement:', paymentErr);
+          notifyError(paymentErr.response?.data?.detail || 'Une erreur est survenue lors de l\'initiation du paiement. La réservation a été créée mais le paiement n\'a pas pu être initié.');
+          
+          // Même en cas d'erreur de paiement, marquer la réservation comme complète pour permettre la navigation
+          setBookingComplete(true);
+          setBookingResult({
+            bookingId: bookingResponse.id,
+            paymentUrl: null,
+            error: true
+          });
         }
-  
-        success('Réservation créée avec succès. Veuillez compléter le paiement.');
-        
-        // Vérifier périodiquement le statut du paiement
-        checkPaymentStatus(bookingResponse.id);
+      } else {
+        console.error('Réponse de création de réservation invalide:', bookingResponse);
+        notifyError('La réservation a été créée mais une erreur technique est survenue. Veuillez contacter le support.');
       }
     } catch (err) {
       console.error('Erreur lors de la création de la réservation:', err);
@@ -236,45 +293,6 @@ const BookingNew = () => {
       setBookingInProgress(false);
     }
   };
-
-  // Ajoutez cette fonction pour vérifier périodiquement le statut du paiement
-const checkPaymentStatus = (bookingId) => {
-  // Créer une variable pour suivre le nombre de tentatives
-  if (!window.paymentCheckRetries) {
-    window.paymentCheckRetries = 0;
-  }
-  
-  // Limite à 10 vérifications (50 secondes)
-  if (window.paymentCheckRetries >= 10) {
-    return;
-  }
-  
-  // Incrémenter le compteur
-  window.paymentCheckRetries++;
-  
-  // Vérifier le statut après 5 secondes
-  setTimeout(async () => {
-    try {
-      const statusResponse = await fetchData(`/bookings/bookings/${bookingId}/check_payment_status/`);
-      
-      if (statusResponse.status === 'completed' || statusResponse.payment_status === 'paid') {
-        // Paiement réussi
-        success('Paiement confirmé ! Votre réservation est confirmée.');
-        // Mise à jour de l'état si nécessaire...
-      } else if (statusResponse.status === 'failed') {
-        // Paiement échoué
-        notifyError('Le paiement a échoué. Veuillez réessayer.');
-      } else {
-        // Toujours en attente, vérifier à nouveau
-        checkPaymentStatus(bookingId);
-      }
-    } catch (error) {
-      console.error('Erreur lors de la vérification du statut du paiement:', error);
-      // En cas d'erreur, on continue à vérifier
-      checkPaymentStatus(bookingId);
-    }
-  }, 5000); // Vérifier toutes les 5 secondes
-};
   
     // Procéder à l'étape suivante
     const nextStep = () => {
@@ -769,6 +787,23 @@ const checkPaymentStatus = (bookingId) => {
                                     ? "Utilisez votre compte MTN Mobile Money pour effectuer le paiement."
                                     : "La détection automatique déterminera l'opérateur en fonction de votre numéro."}
                               </p>
+                              {/* AJOUT DU CHAMP DE NUMÉRO DE TÉLÉPHONE (partie manquante) */}
+                              <div className="mt-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Numéro de téléphone Mobile Money
+                                </label>
+                                <Input
+                                  type="tel"
+                                  name="mobileMoneyNumber"
+                                  value={bookingData.mobileMoneyNumber}
+                                  onChange={handleInputChange}
+                                  placeholder="Ex: 6XXXXXXXX"
+                                  required={bookingData.paymentMethod === 'mobile_money'}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Entrez votre numéro sans le code pays (ex: 656789012)
+                                </p>
+                              </div>
                             </div>
                           )}
                         </div>

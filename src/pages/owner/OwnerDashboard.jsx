@@ -17,6 +17,7 @@ import RecentBookingsList from '../../components/owner/RecentBookingsList';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
+import SubscriptionStatusCheck from '../../components/owner/SubscriptionStatusCheck';
 
 const OwnerDashboard = () => {
   const { currentUser } = useAuth();
@@ -37,7 +38,6 @@ const OwnerDashboard = () => {
   const [recentBookings, setRecentBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [bookingsLoading, setBookingsLoading] = useState(true);
-  const [activeSubscription, setActiveSubscription] = useState(null);
   
   // Charger les données du tableau de bord
   useEffect(() => {
@@ -52,12 +52,7 @@ const OwnerDashboard = () => {
           api.get('/properties/properties/', { params: { owner: currentUser.id } }),
           api.get('/bookings/bookings/', { params: { is_owner: true } })
         ]);
-        
-        // Extraire l'abonnement actif du profil
-        if (profileResponse.data.active_subscription) {
-          setActiveSubscription(profileResponse.data.active_subscription);
-        }
-        
+                
         // Calculer les statistiques à partir des données reçues
         if (propertiesResponse.data.results) {
           const properties = propertiesResponse.data.results;
@@ -125,8 +120,6 @@ const OwnerDashboard = () => {
             ...prev,
             totalRevenue: total_amount || 0
           }));
-          
-          // Préparer les données pour le graphique de revenus
           if (by_month && Array.isArray(by_month)) {
             const chartData = by_month.map(item => ({
               name: new Date(item.month).toLocaleDateString('fr-FR', { month: 'short' }),
@@ -186,81 +179,15 @@ const OwnerDashboard = () => {
           </div>
         </div>
         
+        {/* Remplacer la bannière d'abonnement par le composant SubscriptionStatusCheck */}
+        <SubscriptionStatusCheck />
+        
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <LoadingSpinner size="lg" />
           </div>
         ) : (
-          <>
-            {/* Carte d'abonnement */}
-            {!activeSubscription ? (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-r from-yellow-100 to-yellow-200 p-6 rounded-lg shadow-md mb-6"
-              >
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-yellow-800 mb-2">
-                      Activez votre abonnement propriétaire
-                    </h2>
-                    <p className="text-yellow-700 mb-4 md:mb-0">
-                      Pour publier des logements et recevoir des réservations, veuillez souscrire à un abonnement.
-                    </p>
-                  </div>
-                  <Link to="/owner/subscription">
-                    <Button variant="primary">
-                      Voir les abonnements
-                    </Button>
-                  </Link>
-                </div>
-              </motion.div>
-            ) : activeSubscription.status !== 'active' ? (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-r from-orange-100 to-orange-200 p-6 rounded-lg shadow-md mb-6"
-              >
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-orange-800 mb-2">
-                      Votre abonnement est en attente
-                    </h2>
-                    <p className="text-orange-700 mb-4 md:mb-0">
-                      Veuillez finaliser votre paiement pour activer votre abonnement {activeSubscription.subscription_type_display.toLowerCase()}.
-                    </p>
-                  </div>
-                  <Link to={`/owner/subscription/${activeSubscription.id}/payment`}>
-                    <Button variant="primary">
-                      Finaliser le paiement
-                    </Button>
-                  </Link>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-r from-green-100 to-green-200 p-6 rounded-lg shadow-md mb-6"
-              >
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-green-800 mb-2">
-                      Abonnement {activeSubscription.subscription_type_display.toLowerCase()} actif
-                    </h2>
-                    <p className="text-green-700 mb-4 md:mb-0">
-                      Expire le {new Date(activeSubscription.end_date).toLocaleDateString('fr-FR')}
-                    </p>
-                  </div>
-                  <Link to="/owner/subscription">
-                    <Button variant="outline">
-                      Gérer mon abonnement
-                    </Button>
-                  </Link>
-                </div>
-              </motion.div>
-            )}
-            
+          <>            
             {/* Statistiques principales */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <StatCard 
