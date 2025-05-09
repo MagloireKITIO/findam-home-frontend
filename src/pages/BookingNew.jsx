@@ -125,18 +125,19 @@ const BookingNew = () => {
   };
 
   // Vérifier périodiquement le statut du paiement
+// Fonction de vérification du statut de paiement améliorée
 const checkPaymentStatus = (bookingId) => {
-  // Créer une variable pour suivre le nombre de tentatives
+  // Limiter le nombre de vérifications (10 tentatives maximum)
   if (!window.paymentCheckRetries) {
     window.paymentCheckRetries = 0;
   }
   
-  // Limite à 10 vérifications (50 secondes)
   if (window.paymentCheckRetries >= 10) {
+    console.log("Nombre maximum de vérifications atteint (10)");
     return;
   }
   
-  // Incrémenter le compteur
+  // Incrémenter le compteur de vérifications
   window.paymentCheckRetries++;
   
   // Vérifier le statut après 5 secondes
@@ -144,21 +145,50 @@ const checkPaymentStatus = (bookingId) => {
     try {
       const statusResponse = await fetchData(`/bookings/bookings/${bookingId}/check_payment_status/`);
       
+      console.log("Statut du paiement:", statusResponse);
+      
       if (statusResponse.status === 'completed' || statusResponse.payment_status === 'paid') {
         // Paiement réussi
         success('Paiement confirmé ! Votre réservation est confirmée.');
-        // Mise à jour de l'état si nécessaire...
+        
+        // Mettre à jour l'état de la réservation
+        setBookingResult(prev => ({
+          ...prev,
+          paymentStatus: 'completed'
+        }));
+        
+        // Arrêter les vérifications
+        window.paymentCheckRetries = 999; // Valeur arbitraire pour éviter de futures vérifications
       } else if (statusResponse.status === 'failed') {
         // Paiement échoué
         notifyError('Le paiement a échoué. Veuillez réessayer.');
+        
+        setBookingResult(prev => ({
+          ...prev,
+          paymentStatus: 'failed'
+        }));
+        
+        // Arrêter les vérifications
+        window.paymentCheckRetries = 999;
+      } else if (statusResponse.status === 'error') {
+        // Erreur lors de la vérification
+        console.error("Erreur lors de la vérification du paiement:", statusResponse.error);
+        
+        // Réessayer 2 fois maximum en cas d'erreur
+        if (window.paymentCheckRetries <= 3) {
+          checkPaymentStatus(bookingId);
+        }
       } else {
-        // Toujours en attente, vérifier à nouveau
+        // Paiement toujours en attente, vérifier à nouveau
         checkPaymentStatus(bookingId);
       }
     } catch (error) {
       console.error('Erreur lors de la vérification du statut du paiement:', error);
-      // En cas d'erreur, on continue à vérifier
-      checkPaymentStatus(bookingId);
+      
+      // En cas d'erreur réseau, réessayer jusqu'à 3 fois
+      if (window.paymentCheckRetries <= 3) {
+        checkPaymentStatus(bookingId);
+      }
     }
   }, 5000); // Vérifier toutes les 5 secondes
 };
@@ -232,59 +262,65 @@ const checkPaymentStatus = (bookingId) => {
         check_out_date: checkOut,
         guests_count: guests,
         special_requests: bookingData.specialRequests,
-        promo_code: bookingData.promoCode || null
+        promo_code_value: bookingData.promoCode || ""
       });
   
-      // Vérifier explicitement que bookingResponse existe et contient un ID
-      if (bookingResponse && bookingResponse.id) {
-        console.log("Réservation créée avec succès, ID:", bookingResponse.id);
-        
-        // Préparer les données de paiement selon la méthode choisie
-        const paymentData = {
-          payment_method: bookingData.paymentMethod
-        };
-        
-        // Ajouter les détails spécifiques selon la méthode de paiement
-        if (bookingData.paymentMethod === 'mobile_money') {
-          paymentData.phone_number = bookingData.mobileMoneyNumber;
-          paymentData.mobile_operator = mobileOperator;
-        }
-  
-        try {
-          const paymentResponse = await postData(`/bookings/bookings/${bookingResponse.id}/initiate_payment/`, paymentData);
-  
-          setBookingComplete(true);
-          setBookingResult({
-            bookingId: bookingResponse.id,
-            paymentUrl: paymentResponse.payment_url,
-            transactionId: paymentResponse.transaction_id,
-            notchpayReference: paymentResponse.notchpay_reference
-          });
-  
-          // Redirection vers la page de paiement NotchPay
-          if (paymentResponse.payment_url) {
-            window.open(paymentResponse.payment_url, '_blank');
-          }
-  
-          success('Réservation créée avec succès. Veuillez compléter le paiement.');
-          
-          // Vérifier périodiquement le statut du paiement
-          checkPaymentStatus(bookingResponse.id);
-        } catch (paymentErr) {
-          console.error('Erreur lors de l\'initiation du paiement:', paymentErr);
-          notifyError(paymentErr.response?.data?.detail || 'Une erreur est survenue lors de l\'initiation du paiement. La réservation a été créée mais le paiement n\'a pas pu être initié.');
-          
-          // Même en cas d'erreur de paiement, marquer la réservation comme complète pour permettre la navigation
-          setBookingComplete(true);
-          setBookingResult({
-            bookingId: bookingResponse.id,
-            paymentUrl: null,
-            error: true
-          });
-        }
-      } else {
+      // Vérifier que la réponse contient un ID valide
+      if (!bookingResponse || !bookingResponse.id) {
         console.error('Réponse de création de réservation invalide:', bookingResponse);
-        notifyError('La réservation a été créée mais une erreur technique est survenue. Veuillez contacter le support.');
+        notifyError('Une erreur est survenue lors de la création de la réservation. ID non trouvé.');
+        setBookingInProgress(false);
+        return;
+      }
+  
+      const bookingId = bookingResponse.id;
+      console.log("Réservation créée avec succès, ID:", bookingId);
+      
+      // Préparer les données de paiement selon la méthode choisie
+      const paymentData = {
+        payment_method: bookingData.paymentMethod
+      };
+      
+      // Ajouter les détails spécifiques selon la méthode de paiement
+      if (bookingData.paymentMethod === 'mobile_money') {
+        paymentData.phone_number = bookingData.mobileMoneyNumber;
+        paymentData.mobile_operator = mobileOperator;
+      }
+  
+      try {
+        const paymentResponse = await postData(`/bookings/bookings/${bookingId}/initiate_payment/`, paymentData);
+  
+        setBookingComplete(true);
+        setBookingResult({
+          bookingId: bookingId,
+          paymentUrl: paymentResponse.payment_url,
+          transactionId: paymentResponse.transaction_id,
+          notchpayReference: paymentResponse.notchpay_reference
+        });
+  
+        // Redirection vers la page de paiement NotchPay
+        if (paymentResponse.payment_url) {
+          window.open(paymentResponse.payment_url, '_blank');
+        }
+  
+        success('Réservation créée avec succès. Veuillez compléter le paiement.');
+        
+        // Réinitialiser le compteur de vérifications de paiement
+        window.paymentCheckRetries = 0;
+        
+        // Vérifier périodiquement le statut du paiement
+        checkPaymentStatus(bookingId);
+      } catch (paymentErr) {
+        console.error('Erreur lors de l\'initiation du paiement:', paymentErr);
+        notifyError(paymentErr.response?.data?.detail || 'Une erreur est survenue lors de l\'initiation du paiement. La réservation a été créée mais le paiement n\'a pas pu être initié.');
+        
+        // Même en cas d'erreur de paiement, marquer la réservation comme complète pour permettre la navigation
+        setBookingComplete(true);
+        setBookingResult({
+          bookingId: bookingId,
+          paymentUrl: null,
+          error: true
+        });
       }
     } catch (err) {
       console.error('Erreur lors de la création de la réservation:', err);

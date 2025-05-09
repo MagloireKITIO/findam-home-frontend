@@ -45,28 +45,58 @@ const BookingDetail = () => {
   const [reviewLoading, setReviewLoading] = useState(false);
 
   // Charger les détails de la réservation
-  useEffect(() => {
-    const getBookingDetails = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await api.get(`/bookings/bookings/${id}/`);
-        setBooking(response.data);
-      } catch (err) {
-        console.error('Erreur lors du chargement des détails de la réservation:', err);
-        if (err.response?.status === 404) {
-          setError('Cette réservation n\'existe pas ou a été supprimée.');
-        } else {
-          setError('Une erreur est survenue lors du chargement des détails de la réservation.');
+ 
+    useEffect(() => {
+      const getBookingDetails = async () => {
+        setLoading(true);
+        setError(null);
+    
+        try {
+          // Vérifier si l'ID est complet ou tronqué
+          let bookingId = id;
+          
+          // Si l'ID est court et ne contient pas de tirets, c'est probablement tronqué
+          // UUID complet format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+          if (id && !id.includes('-') && id.length < 32) {
+            // Récupérer l'ID complet depuis les paramètres d'URL ou localStorage
+            const fullId = new URLSearchParams(window.location.search).get('full_id');
+            if (fullId) {
+              bookingId = fullId;
+            } else {
+              // Essayer de récupérer depuis le localStorage (si stocké lors du paiement)
+              const storedBookings = localStorage.getItem('recent_bookings');
+              if (storedBookings) {
+                try {
+                  const bookings = JSON.parse(storedBookings);
+                  const matchingBooking = bookings.find(b => b.id.startsWith(id));
+                  if (matchingBooking) {
+                    bookingId = matchingBooking.id;
+                  }
+                } catch (e) {
+                  console.error('Erreur lors de la récupération des réservations stockées:', e);
+                }
+              }
+            }
+          }
+    
+          const response = await api.get(`/bookings/bookings/${bookingId}/`);
+          setBooking(response.data);
+        } catch (err) {
+          console.error('Erreur lors du chargement des détails de la réservation:', err);
+          if (err.response?.status === 404) {
+            setError('Cette réservation n\'existe pas ou a été supprimée.');
+          } else {
+            setError('Une erreur est survenue lors du chargement des détails de la réservation.');
+          }
+        } finally {
+          setLoading(false);
         }
-      } finally {
-        setLoading(false);
-      }
-    };
+      };
+    
+      getBookingDetails();
+    }, [id]);
 
-    getBookingDetails();
-  }, [id]);
+  
 
   // Fonctions
   // Formater une date
@@ -599,31 +629,31 @@ const BookingDetail = () => {
                 
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span>{booking.base_price / booking.price_per_night} nuits x {booking.price_per_night.toLocaleString()} FCFA</span>
-                    <span>{booking.base_price.toLocaleString()} FCFA</span>
+                    <span>{booking.base_price / booking.price_per_night} nuits x {(booking.price_per_night|| 0).toLocaleString()} FCFA</span>
+                    <span>{(booking.base_price|| 0).toLocaleString()} FCFA</span>
                   </div>
                   
                   <div className="flex justify-between">
                     <span>Frais de ménage</span>
-                    <span>{booking.cleaning_fee.toLocaleString()} FCFA</span>
+                    <span>{(booking.cleaning_fee|| 0).toLocaleString()} FCFA</span>
                   </div>
                   
                   <div className="flex justify-between">
                     <span>Frais de service</span>
-                    <span>{booking.service_fee.toLocaleString()} FCFA</span>
+                    <span>{(booking.service_fee|| 0).toLocaleString()} FCFA</span>
                   </div>
                   
                   {booking.discount_amount > 0 && (
                     <div className="flex justify-between text-green-600">
                       <span>Réduction</span>
-                      <span>-{booking.discount_amount.toLocaleString()} FCFA</span>
+                      <span>-{(booking.discount_amount|| 0).toLocaleString()} FCFA</span>
                     </div>
                   )}
                   
                   {booking.promo_code_details && (
                     <div className="flex justify-between text-green-600">
                       <span>Code promo ({booking.promo_code_details.code})</span>
-                      <span>-{((booking.base_price * booking.promo_code_details.discount_percentage) / 100).toLocaleString()} FCFA</span>
+                      <span>-{(((booking.base_price * booking.promo_code_details.discount_percentage) / 100)|| 0).toLocaleString()} FCFA</span>
                     </div>
                   )}
                 </div>
@@ -631,7 +661,7 @@ const BookingDetail = () => {
                 <div className="border-t border-gray-200 mt-4 pt-4">
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>
-                    <span>{booking.total_price.toLocaleString()} FCFA</span>
+                    <span>{(booking.total_price|| 0).toLocaleString()} FCFA</span>
                   </div>
                   
                   <div className="text-sm text-gray-600 mt-2 flex items-center">
