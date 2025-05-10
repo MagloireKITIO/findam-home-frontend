@@ -45,6 +45,32 @@ const BookingDetail = () => {
   const [reviewLoading, setReviewLoading] = useState(false);
 
   // Charger les détails de la réservation
+
+  useEffect(() => {
+    // Si la réservation est chargée et que son statut de paiement est en attente
+    if (booking && (booking.payment_status === 'pending' || booking.payment_status === 'authorized')) {
+      // Vérifier le statut du paiement périodiquement
+      const checkStatusInterval = setInterval(async () => {
+        try {
+          const statusResponse = await api.get(`/bookings/bookings/${id}/check_payment_status/`);
+          if (statusResponse.data.payment_status === 'paid' || 
+              statusResponse.data.status === 'completed' || 
+              statusResponse.data.details?.status === 'complete') {
+            // Recharger les données de la réservation si le paiement est confirmé
+            const response = await api.get(`/bookings/bookings/${id}/`);
+            setBooking(response.data);
+            clearInterval(checkStatusInterval);
+            success('Paiement confirmé ! Votre réservation est validée.');
+          }
+        } catch (error) {
+          console.error('Erreur lors de la vérification du statut:', error);
+        }
+      }, 5000); // Vérifier toutes les 5 secondes
+      
+      // Nettoyage
+      return () => clearInterval(checkStatusInterval);
+    }
+  }, [booking, id]);
  
     useEffect(() => {
       const getBookingDetails = async () => {
@@ -96,7 +122,7 @@ const BookingDetail = () => {
       getBookingDetails();
     }, [id]);
 
-  
+    
 
   // Fonctions
   // Formater une date

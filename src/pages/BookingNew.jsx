@@ -125,74 +125,42 @@ const BookingNew = () => {
   };
 
   // Vérifier périodiquement le statut du paiement
-// Fonction de vérification du statut de paiement améliorée
-const checkPaymentStatus = (bookingId) => {
-  // Limiter le nombre de vérifications (10 tentatives maximum)
-  if (!window.paymentCheckRetries) {
-    window.paymentCheckRetries = 0;
-  }
-  
-  if (window.paymentCheckRetries >= 10) {
-    console.log("Nombre maximum de vérifications atteint (10)");
-    return;
-  }
-  
-  // Incrémenter le compteur de vérifications
-  window.paymentCheckRetries++;
-  
-  // Vérifier le statut après 5 secondes
-  setTimeout(async () => {
-    try {
-      const statusResponse = await fetchData(`/bookings/bookings/${bookingId}/check_payment_status/`);
-      
-      console.log("Statut du paiement:", statusResponse);
-      
-      if (statusResponse.status === 'completed' || statusResponse.payment_status === 'paid') {
-        // Paiement réussi
-        success('Paiement confirmé ! Votre réservation est confirmée.');
+  const checkPaymentStatus = (bookingId) => {
+    setTimeout(async () => {
+      try {
+        const statusResponse = await fetchData(`/bookings/bookings/${bookingId}/check_payment_status/`);
+        console.log("Statut du paiement:", statusResponse);
         
-        // Mettre à jour l'état de la réservation
-        setBookingResult(prev => ({
-          ...prev,
-          paymentStatus: 'completed'
-        }));
-        
-        // Arrêter les vérifications
-        window.paymentCheckRetries = 999; // Valeur arbitraire pour éviter de futures vérifications
-      } else if (statusResponse.status === 'failed') {
-        // Paiement échoué
-        notifyError('Le paiement a échoué. Veuillez réessayer.');
-        
-        setBookingResult(prev => ({
-          ...prev,
-          paymentStatus: 'failed'
-        }));
-        
-        // Arrêter les vérifications
-        window.paymentCheckRetries = 999;
-      } else if (statusResponse.status === 'error') {
-        // Erreur lors de la vérification
-        console.error("Erreur lors de la vérification du paiement:", statusResponse.error);
-        
-        // Réessayer 2 fois maximum en cas d'erreur
-        if (window.paymentCheckRetries <= 3) {
+        if (statusResponse.status === 'completed' || 
+            statusResponse.payment_status === 'paid' ||
+            statusResponse.details?.status === 'complete') {  // Ajout de cette condition
+          
+          // Paiement réussi
+          success('Paiement confirmé ! Votre réservation est confirmée.');
+          setBookingResult(prev => ({
+            ...prev,
+            paymentStatus: 'completed'
+          }));
+          
+          // Recharger la page après 2 secondes pour montrer le statut mis à jour
+          setTimeout(() => {
+            window.location.href = `/bookings/${bookingId}`;
+          }, 2000);
+          
+        } else if (statusResponse.status === 'failed') {
+          // Paiement échoué
+          notifyError('Le paiement a échoué. Veuillez réessayer.');
+        } else {
+          // Vérifier à nouveau après 3 secondes
           checkPaymentStatus(bookingId);
         }
-      } else {
-        // Paiement toujours en attente, vérifier à nouveau
+      } catch (error) {
+        console.error('Erreur lors de la vérification du paiement:', error);
+        // Vérifier à nouveau après 5 secondes en cas d'erreur
         checkPaymentStatus(bookingId);
       }
-    } catch (error) {
-      console.error('Erreur lors de la vérification du statut du paiement:', error);
-      
-      // En cas d'erreur réseau, réessayer jusqu'à 3 fois
-      if (window.paymentCheckRetries <= 3) {
-        checkPaymentStatus(bookingId);
-      }
-    }
-  }, 5000); // Vérifier toutes les 5 secondes
-};
-
+    }, 3000);  // Vérifier plus fréquemment (3 secondes)
+  };
   // Validation du code promo
   const validatePromoCode = async () => {
     if (!bookingData.promoCode.trim()) return;
