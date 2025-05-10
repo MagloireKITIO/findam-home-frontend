@@ -18,6 +18,7 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import SubscriptionStatusCheck from '../../components/owner/SubscriptionStatusCheck';
+import ScheduledPayoutsWidget from '../../components/owner/ScheduledPayoutsWidget';
 
 const OwnerDashboard = () => {
   const { currentUser } = useAuth();
@@ -238,6 +239,20 @@ const OwnerDashboard = () => {
                 <OccupancyChart data={occupancyData} />
               </motion.div>
             </div>
+
+            {/* Versements programmés */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="mb-8"
+            >
+              <ScheduledPayoutsWidget />
+            </motion.div>
+
+            
+
+
             
             {/* Réservations récentes */}
             <motion.div
