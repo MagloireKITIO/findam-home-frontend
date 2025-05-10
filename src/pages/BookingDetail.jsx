@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiClock, FiCheck, FiX, FiCalendar, FiHome, FiUser,
   FiMapPin, FiDollarSign, FiCreditCard, FiStar, FiInfo,
-  FiMessageSquare, FiDownload, FiShare2, FiAlertTriangle
+  FiMessageSquare, FiDownload, FiShare2, FiAlertTriangle,
+  FiAlertCircle
 } from 'react-icons/fi';
 
 import Layout from '../components/layout/Layout';
@@ -16,6 +17,7 @@ import api from '../services/api';
 import useApi from '../hooks/useApi';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
+import CancellationPolicy from '../components/booking/CancellationPolicy';
 
 const BookingDetail = () => {
   const { id } = useParams();
@@ -43,6 +45,8 @@ const BookingDetail = () => {
   });
   const [cancelLoading, setCancelLoading] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [gracePeriodMinutes, setGracePeriodMinutes] = useState(30);
+
 
   // Charger les détails de la réservation
 
@@ -122,7 +126,25 @@ const BookingDetail = () => {
       getBookingDetails();
     }, [id]);
 
-    
+    useEffect(() => {
+      // Récupérer la configuration de la période de grâce
+      const getGracePeriodConfig = async () => {
+        try {
+          const response = await api.get('/api/v1/config/system/', {
+            params: { key: 'CANCELLATION_GRACE_PERIOD_MINUTES' }
+          });
+          
+          if (response.data && response.data.value) {
+            setGracePeriodMinutes(parseInt(response.data.value, 10));
+          }
+        } catch (err) {
+          console.error('Erreur lors de la récupération de la période de grâce:', err);
+          // Garder la valeur par défaut en cas d'erreur
+        }
+      };
+      
+      getGracePeriodConfig();
+    }, []);
 
   // Fonctions
   // Formater une date
@@ -201,6 +223,26 @@ const BookingDetail = () => {
     }
   };
 
+  {booking && booking.status === 'cancelled' && booking.payment_status === 'refunded' && (
+    <div className="flex items-center text-green-700 bg-green-100 px-4 py-2 rounded-lg mt-2">
+      <FiCheck className="mr-2" size={20} />
+      <div>
+        <p className="font-medium">Remboursement effectué</p>
+        <p className="text-sm">Un remboursement a été effectué suite à cette annulation.</p>
+      </div>
+    </div>
+  )}
+  
+  {booking && booking.status === 'cancelled' && booking.payment_status === 'paid' && (
+    <div className="flex items-center text-yellow-700 bg-yellow-100 px-4 py-2 rounded-lg mt-2">
+      <FiClock className="mr-2" size={20} />
+      <div>
+        <p className="font-medium">Remboursement en cours</p>
+        <p className="text-sm">Votre remboursement est en cours de traitement selon la politique d'annulation applicable.</p>
+      </div>
+    </div>
+  )}
+
   // Calculer si l'utilisateur peut annuler
   const canCancel = () => {
     if (!booking) return false;
@@ -257,19 +299,39 @@ const BookingDetail = () => {
     setCancelLoading(true);
     
     try {
-      await postData(`/bookings/bookings/${id}/cancel/`, {
+      const response = await postData(`/bookings/bookings/${id}/cancel/`, {
         reason: cancelReason
       });
       
       // Recharger les données
-      const response = await api.get(`/bookings/bookings/${id}/`);
-      setBooking(response.data);
+      const bookingResponse = await api.get(`/bookings/bookings/${id}/`);
+      setBooking(bookingResponse.data);
       
-      success('Réservation annulée avec succès');
+      // Afficher les détails du remboursement si disponibles
+      if (response.cancellation_info && response.cancellation_info.refund_info) {
+        const refundInfo = response.cancellation_info.refund_info;
+        const refundAmount = refundInfo.amount.toLocaleString();
+        const refundPercentage = refundInfo.percentage;
+        
+        success(
+          `Réservation annulée avec succès. Remboursement de ${refundAmount} FCFA (${refundPercentage}%) ${
+            refundInfo.status === 'completed' ? 'effectué' : 'en cours de traitement'
+          }.`
+        );
+      } else {
+        success('Réservation annulée avec succès');
+      }
+      
       setShowCancelModal(false);
     } catch (err) {
       console.error('Erreur lors de l\'annulation de la réservation:', err);
-      notifyError('Une erreur est survenue lors de l\'annulation de la réservation');
+      
+      // Afficher un message d'erreur plus détaillé si disponible
+      if (err.response?.data?.detail) {
+        notifyError(err.response.data.detail);
+      } else {
+        notifyError('Une erreur est survenue lors de l\'annulation de la réservation');
+      }
     } finally {
       setCancelLoading(false);
     }
@@ -347,6 +409,19 @@ const BookingDetail = () => {
   const downloadReceipt = () => {
     // Cette fonction serait implémentée pour appeler l'API et télécharger le PDF du reçu
     notifyError('Cette fonctionnalité sera disponible prochainement');
+  };
+
+  const calculateNights = (checkInDate, checkOutDate) => {
+    if (!checkInDate || !checkOutDate) return 0;
+    
+    const checkIn = new Date(checkInDate);
+    const checkOut = new Date(checkOutDate);
+    
+    // Calculer la différence en millisecondes puis convertir en jours
+    const diffTime = Math.abs(checkOut - checkIn);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
   };
 
   // Rendu lors du chargement ou erreur
@@ -585,30 +660,101 @@ const BookingDetail = () => {
               </div>
               
               {/* Politique d'annulation */}
-              {canCancel() && (
-                <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                  <h2 className="text-xl font-semibold mb-4">Politique d'annulation</h2>
-                  
-                  <p className="text-gray-700 mb-4">
-                    {booking.property?.cancellation_policy === 'flexible' ? (
-                      "Annulation gratuite jusqu'à 24 heures avant l'arrivée. Annulation après ce délai : remboursement de 50% du montant payé."
-                    ) : booking.property?.cancellation_policy === 'moderate' ? (
-                      "Annulation gratuite jusqu'à 5 jours avant l'arrivée. Annulation après ce délai : remboursement de 50% du montant payé."
-                    ) : (
-                      "Annulation gratuite jusqu'à 14 jours avant l'arrivée. Annulation après ce délai : remboursement de 50% du montant payé."
-                    )}
-                  </p>
-                  
-                  <Button
-                    variant="outline"
-                    className="border-red-500 text-red-500 hover:bg-red-50"
-                    icon={<FiX />}
-                    onClick={() => setShowCancelModal(true)}
-                  >
-                    Annuler cette réservation
-                  </Button>
+              {canCancel() && booking && (
+              <CancellationPolicy
+                policyType={booking.property?.cancellation_policy || 'moderate'}
+                checkInDate={booking.check_in_date}
+                basePrice={booking.base_price || 0}
+                cleaningFee={booking.cleaning_fee || 0}
+                serviceFee={booking.service_fee || 0}
+                gracePeriodMinutes={30} // On utilise une valeur par défaut, à remplacer par la valeur dynamique si disponible
+                reservationTime={booking.created_at} // Heure de la réservation pour calculer la période de grâce
+              />
+            )}
+
+            {booking && !canCancel() && booking.status !== 'cancelled' && (
+              <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 className="text-xl font-semibold mb-4">Politique d'annulation</h2>
+                
+                <p className="text-gray-700 mb-4">
+                  {booking.property?.cancellation_policy === 'flexible' ? (
+                    "Annulation gratuite jusqu'à 24 heures avant l'arrivée. Annulation après ce délai : remboursement de 50% du montant payé."
+                  ) : booking.property?.cancellation_policy === 'moderate' ? (
+                    "Annulation gratuite jusqu'à 5 jours avant l'arrivée. Annulation après ce délai : remboursement de 50% du montant payé."
+                  ) : (
+                    "Annulation gratuite jusqu'à 14 jours avant l'arrivée. Annulation après ce délai : remboursement de 50% du montant payé."
+                  )}
+                </p>
+                
+                <div className="text-sm text-red-600">
+                  <FiAlertCircle className="inline-block mr-1" />
+                  L'annulation n'est plus possible pour cette réservation.
                 </div>
-              )}
+              </div>
+            )}
+
+            {booking && booking.status === 'cancelled' && (
+              <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 className="text-xl font-semibold mb-4">Détails de l'annulation</h2>
+                
+                <div className="flex items-start mb-4">
+                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3 flex-shrink-0">
+                    <FiX className="text-red-500" size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Réservation annulée</h3>
+                    <p className="text-gray-700">
+                      Cette réservation a été annulée le {formatDate(booking.cancelled_at)} {
+                        booking.cancelled_by === booking.tenant?.id ? 'par le locataire' :
+                        booking.cancelled_by === booking.property?.owner?.id ? 'par le propriétaire' : 'par l\'administration'
+                      }.
+                    </p>
+                  </div>
+                </div>
+                
+                {booking.payment_status === 'refunded' && (
+                  <div className="p-4 bg-green-50 rounded-md border border-green-200 mt-3">
+                    <h3 className="font-medium text-green-700 mb-2">Remboursement effectué</h3>
+                    <p className="text-gray-700">
+                      {booking.notes && booking.notes.includes('période de grâce')
+                        ? "Un remboursement complet a été effectué suite à l'annulation pendant la période de grâce."
+                        : `Un remboursement a été effectué conformément à la politique d'annulation ${booking.property?.cancellation_policy || 'applicable'}.`
+                      }
+                    </p>
+                  </div>
+                )}
+                
+                {booking.payment_status === 'pending' && (
+                  <div className="p-4 bg-yellow-50 rounded-md border border-yellow-200">
+                    <h3 className="font-medium text-yellow-700 mb-2">Remboursement en attente</h3>
+                    <p className="text-gray-700">
+                      Le remboursement est en cours de traitement et sera effectué selon la politique d'annulation applicable.
+                    </p>
+                  </div>
+                )}
+                
+                {booking.notes && booking.notes.includes('Annulation:') && (
+                  <div className="mt-4">
+                    <h3 className="font-medium mb-2">Raison de l'annulation</h3>
+                    <div className="p-3 bg-gray-50 rounded-md text-gray-700">
+                      {booking.notes.split('Annulation:')[1].trim()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {booking.notes && booking.notes.includes('période de grâce') && (
+              <div className="p-4 bg-blue-50 rounded-md border border-blue-200 mt-3">
+                <h3 className="font-medium text-blue-700 mb-2">Annulation pendant la période de grâce</h3>
+                <p className="text-gray-700">
+                  Cette réservation a été annulée pendant la période de grâce accordée après la réservation. 
+                  Un remboursement complet a été appliqué (hors frais de service).
+                </p>
+                <div className="mt-2 text-xs text-gray-500">
+                  La période de grâce permet aux locataires d'annuler rapidement sans pénalité en cas d'erreur de réservation.
+                </div>
+              </div>
+            )}
               
               {/* Avis */}
               {booking.review && (
@@ -654,10 +800,30 @@ const BookingDetail = () => {
                 <h2 className="text-xl font-semibold mb-4">Résumé des prix</h2>
                 
                 <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span>{booking.base_price / booking.price_per_night} nuits x {(booking.price_per_night|| 0).toLocaleString()} FCFA</span>
-                    <span>{(booking.base_price|| 0).toLocaleString()} FCFA</span>
-                  </div>
+                <div className="flex justify-between">
+                  <span>
+                    {booking.check_in_date && booking.check_out_date 
+                      ? calculateNights(booking.check_in_date, booking.check_out_date) 
+                      : 0} nuits x {
+                        // Calcul du prix par nuit
+                        (() => {
+                          // Si price_per_night existe, l'utiliser
+                          if (booking.price_per_night && booking.price_per_night > 0) {
+                            return booking.price_per_night.toLocaleString();
+                          }
+                          // Sinon, si on a le prix total et le nombre de nuits, calculer le prix par nuit
+                          else if (booking.base_price && booking.check_in_date && booking.check_out_date) {
+                            const nights = calculateNights(booking.check_in_date, booking.check_out_date);
+                            const pricePerNight = nights > 0 ? booking.base_price / nights : 0;
+                            return Math.round(pricePerNight).toLocaleString();
+                          }
+                          // Valeur par défaut
+                          return "0";
+                        })()
+                      } FCFA
+                  </span>
+                  <span>{(booking.base_price || 0).toLocaleString()} FCFA</span>
+                </div>
                   
                   <div className="flex justify-between">
                     <span>Frais de ménage</span>

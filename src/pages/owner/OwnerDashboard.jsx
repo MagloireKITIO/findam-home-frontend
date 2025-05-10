@@ -19,6 +19,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import SubscriptionStatusCheck from '../../components/owner/SubscriptionStatusCheck';
 import ScheduledPayoutsWidget from '../../components/owner/ScheduledPayoutsWidget';
+import CancelledBookingsWidget from '../../components/owner/CancelledBookingsWidget';
+import CompensationPayoutsWidget from '../../components/owner/CompensationPayoutsWidget';
 
 const OwnerDashboard = () => {
   const { currentUser } = useAuth();
@@ -250,10 +252,26 @@ const OwnerDashboard = () => {
               <ScheduledPayoutsWidget />
             </motion.div>
 
-            
+            {/* Compensations d'annulation */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="mb-8"
+            >
+              <CompensationPayoutsWidget />
+            </motion.div>
 
+            {/* Réservations annulées */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="mb-8"
+            >
+              <CancelledBookingsWidget />
+            </motion.div>
 
-            
             {/* Réservations récentes */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
