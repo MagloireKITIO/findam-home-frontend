@@ -383,19 +383,19 @@ const PropertyManagement = () => {
                   
                   {/* Statistiques rapides */}
                   <div className="grid grid-cols-3 gap-2 mb-4 text-center text-sm">
-                    <div className="bg-gray-50 p-2 rounded">
-                      <div className="font-semibold">{property.booking_count || 0}</div>
-                      <div className="text-gray-500">Réservations</div>
-                    </div>
-                    <div className="bg-gray-50 p-2 rounded">
-                      <div className="font-semibold">{property.views_count || 0}</div>
-                      <div className="text-gray-500">Vues</div>
-                    </div>
-                    <div className="bg-gray-50 p-2 rounded">
-                      <div className="font-semibold">{property.avg_rating || '-'}</div>
-                      <div className="text-gray-500">Note</div>
-                    </div>
+                  <div className="bg-gray-50 p-2 rounded">
+                    <div className="font-semibold">{property.booking_count || 0}</div>
+                    <div className="text-gray-500">Réservations</div>
                   </div>
+                  <div className="bg-gray-50 p-2 rounded">
+                    <div className="font-semibold">{property.views_count || 0}</div>
+                    <div className="text-gray-500">Vues</div>
+                  </div>
+                  {/* <div className="bg-gray-50 p-2 rounded">
+                    <div className="font-semibold">{property.avg_rating ? property.avg_rating.toFixed(1) : '-'}</div>
+                    <div className="text-gray-500">Note</div>
+                  </div> */}
+                </div>
                   
                   {/* Actions */}
                   <div className="flex flex-wrap gap-2">

@@ -183,7 +183,8 @@ const OwnerDashboard = () => {
         </div>
         
         {/* Remplacer la bannière d'abonnement par le composant SubscriptionStatusCheck */}
-        <SubscriptionStatusCheck />
+        {/* Abonnements désactivés - système basé uniquement sur commission */}
+        {/* <SubscriptionStatusCheck /> */}
         
         {loading ? (
           <div className="flex justify-center items-center h-64">
