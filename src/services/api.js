@@ -61,6 +61,11 @@ api.interceptors.response.use(
           refresh: refreshToken
         });
         
+        // Vérifier si la réponse est valide
+        if (!response.data || !response.data.access) {
+          throw new Error('Réponse de refresh token invalide');
+        }
+        
         // Mise à jour du token dans le localStorage
         localStorage.setItem('access_token', response.data.access);
         
@@ -68,40 +73,15 @@ api.interceptors.response.use(
         originalRequest.headers['Authorization'] = `Bearer ${response.data.access}`;
         return api(originalRequest);
       } catch (err) {
-        // En cas d'échec du rafraîchissement, déconnexion
+        console.error('Erreur lors du rafraîchissement du token:', err);
+        // En cas d'échec du rafraîchissement, déconnexion propre
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
-        window.location.href = '/login';
+        // Rediriger vers login mais ne bouclez pas si déjà sur la page login
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
         return Promise.reject(error);
-      }
-    }
-    
-    // Gestion des erreurs 429 (Too Many Requests)
-    if (error.response?.status === 429) {
-      // Si la requête n'a pas encore été retentée trop de fois
-      if (!originalRequest._retryCount || originalRequest._retryCount < 3) {
-        // Initialiser ou incrémenter le compteur de tentatives
-        originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
-        
-        // Attendre un délai exponentiel avant de réessayer
-        const delay = Math.pow(2, originalRequest._retryCount) * 1000;
-        console.log(`Limite de requêtes atteinte, nouvelle tentative dans ${delay/1000} secondes...`);
-        
-        return new Promise(resolve => {
-          setTimeout(() => {
-            console.log(`Nouvelle tentative ${originalRequest._retryCount}...`);
-            resolve(api(originalRequest));
-          }, delay);
-        });
-      }
-    }
-    
-    // Si c'est une erreur de timeout ou de réseau, tenter de réessayer
-    if (error.code === 'ECONNABORTED' || !error.response) {
-      if (!originalRequest._networkRetry) {
-        originalRequest._networkRetry = true;
-        console.log('Problème de connexion, nouvelle tentative...');
-        return api(originalRequest);
       }
     }
     

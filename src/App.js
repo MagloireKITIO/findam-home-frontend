@@ -21,6 +21,13 @@ import Messages from './pages/Messages';
 import Notifications from './pages/Notifications';
 import NotFound from './pages/NotFound';
 
+// Nouvelles pages d'authentification
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import AuthCallback from './pages/AuthCallback';
+import WelcomePage from './pages/WelcomePage';
+import CompleteProfile from './pages/CompleteProfile';
+
 // Pages de l'espace propriétaire
 import OwnerDashboard from './pages/owner/OwnerDashboard';
 import PropertyManagement from './pages/owner/PropertyManagement';
@@ -46,6 +53,23 @@ function App() {
             <Route path="/properties" element={<PropertySearch />} />
             <Route path="/properties/:id" element={<PropertyDetail />} />
             <Route path="/properties/:id/reviews" element={<PropertyReviews />} />
+            
+            {/* Nouvelles routes d'authentification */}
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth/complete-profile" element={<CompleteProfile />} />
+
+            
+            {/* Pages privées - Accueil et profil */}
+            <Route 
+              path="/welcome" 
+              element={
+                <PrivateRoute>
+                  <WelcomePage />
+                </PrivateRoute>
+              } 
+            />
             
             {/* Pages privées - Profil et vérification */}
             <Route 
