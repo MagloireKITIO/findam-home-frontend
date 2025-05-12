@@ -13,6 +13,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import useApi from '../hooks/useApi';
+import PaymentMethods from '../components/payment/PaymentMethods';
 
 const UserProfile = () => {
   const { currentUser } = useAuth();
@@ -340,42 +341,18 @@ const UserProfile = () => {
           </motion.div>
         );
 
-      case 'paymentMethods':
-        return (
-          <motion.div
-            key="paymentMethods"
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            variants={tabVariants}
-          >
-            <div className="bg-white rounded-lg shadow">
-              <div className="p-6 bg-primary-50 border-b">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Méthodes de paiement</h2>
-                <p className="text-gray-600">
-                  Gérez vos moyens de paiement pour les réservations et les transactions.
-                </p>
-              </div>
-              
-              <div className="p-6">
-                <div className="text-center py-8">
-                  <FiCreditCard className="mx-auto text-gray-400" size={48} />
-                  <h3 className="mt-4 text-lg font-medium">Aucune méthode de paiement</h3>
-                  <p className="mt-2 text-gray-600">
-                    Vous n'avez pas encore ajouté de méthode de paiement.
-                  </p>
-                  <Button
-                    variant="primary"
-                    className="mt-4"
-                    onClick={() => { /* À implémenter */ }}
-                  >
-                    Ajouter une méthode de paiement
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        );
+        case 'paymentMethods':
+          return (
+            <motion.div
+              key="paymentMethods"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={tabVariants}
+            >
+              <PaymentMethods />
+            </motion.div>
+          );
 
       case 'security':
         return (
