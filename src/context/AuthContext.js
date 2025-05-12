@@ -17,10 +17,12 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkLoggedIn = async () => {
       try {
+        console.log("checkLoggedIn - Vérification du token d'authentification");
         const token = localStorage.getItem('access_token');
         if (token) {
           // Vérifie la validité du token
           const response = await api.get('/accounts/profile/');
+          console.log("checkLoggedIn - Profil récupéré:", response.data.email);
           setCurrentUser(response.data);
         }
       } catch (err) {
@@ -36,49 +38,93 @@ export const AuthProvider = ({ children }) => {
     // Vérifier si nous revenons d'une authentification sociale
     const checkSocialAuth = async () => {
       try {
+        console.log("checkSocialAuth - Début de la vérification");
         setSocialAuthInProgress(true);
         const tokenData = await socialAuthService.checkAuthRedirect();
         
         if (tokenData) {
+          console.log("checkSocialAuth - Tokens récupérés:", {
+            accessTokenExists: !!tokenData.access,
+            refreshTokenExists: !!tokenData.refresh,
+            isNewUser: tokenData.isNewUser,
+            provider: tokenData.provider
+          });
+          
           // Stocker les tokens
           localStorage.setItem('access_token', tokenData.access);
           localStorage.setItem('refresh_token', tokenData.refresh);
           
-          // Récupérer le profil utilisateur
-          const userResponse = await api.get('/accounts/profile/');
-          setCurrentUser(userResponse.data);
+          // Si c'est un nouvel utilisateur, stocker cette information
+          if (tokenData.isNewUser) {
+            console.log("checkSocialAuth - Nouvel utilisateur social détecté");
+            localStorage.setItem('is_new_social_user', 'true');
+            // Pour les nouveaux utilisateurs, on ne charge pas encore le profil
+            // car ils doivent d'abord compléter leurs informations
+            success('Authentification réussie via authentification sociale.');
+            return true;
+          }
           
-          success('Connexion réussie via authentification sociale.');
+          try {
+            // Récupérer le profil utilisateur pour les utilisateurs existants
+            console.log("checkSocialAuth - Récupération du profil utilisateur");
+            const userResponse = await api.get('/accounts/profile/');
+            console.log("checkSocialAuth - Profil récupéré pour:", userResponse.data.email);
+            setCurrentUser(userResponse.data);
+            
+            success('Connexion réussie via authentification sociale.');
+          } catch (profileErr) {
+            console.error("checkSocialAuth - Erreur lors de la récupération du profil:", profileErr);
+            // Si on ne peut pas récupérer le profil, c'est peut-être un nouvel utilisateur
+            // ou il y a un problème avec le token
+            localStorage.setItem('is_new_social_user', 'true');
+            return true;
+          }
         }
+        return false;
       } catch (err) {
         console.error('Erreur lors de l\'authentification sociale:', err);
         const errorMessage = 'Une erreur est survenue lors de l\'authentification sociale.';
         setAuthError(errorMessage);
         error(errorMessage);
+        return false;
       } finally {
         setSocialAuthInProgress(false);
-        setLoading(false);
       }
     };
-
+    
     const initialize = async () => {
+      console.log("initialize - Début de l'initialisation");
       setLoading(true);
       
       // D'abord vérifier l'authentification sociale
       try {
-        await checkSocialAuth();
+        console.log("initialize - Vérification de l'authentification sociale");
+        const isSocialLogin = await checkSocialAuth();
+        
+        // Si c'est un social login en cours, on arrête l'initialisation ici
+        // La redirection sera gérée par le composant AuthCallback
+        if (isSocialLogin) {
+          console.log("initialize - Authentification sociale détectée, arrêt de l'initialisation");
+          setLoading(false);
+          return;
+        }
       } catch (e) {
         console.error('Erreur lors de la vérification de l\'authentification sociale:', e);
       }
       
-      // Ensuite vérifier l'authentification par token si l'utilisateur n'est pas encore connecté
-      if (!currentUser) {
+      // IMPORTANT: Ne vérifier l'authentification par token que si nous ne sommes PAS dans un flux social
+      // et que nous n'avons pas déjà un utilisateur connecté
+      if (!currentUser && !socialAuthInProgress) {
         try {
+          console.log("initialize - Vérification de l'authentification par token");
           await checkLoggedIn();
         } catch (e) {
           console.error('Erreur lors de la vérification de l\'authentification par token:', e);
           setLoading(false);
         }
+      } else {
+        console.log("initialize - Saut de la vérification du token (utilisateur déjà connecté ou auth sociale en cours)");
+        setLoading(false);
       }
     };
 
@@ -149,6 +195,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('is_new_social_user');
     setCurrentUser(null);
     success('Vous avez été déconnecté avec succès');
   };
@@ -222,6 +269,54 @@ export const AuthProvider = ({ children }) => {
       console.error('Erreur de mise à jour du profil:', err);
       const errorMessage = err.response?.data?.detail || 
                           'Une erreur est survenue lors de la mise à jour du profil.';
+      
+      setAuthError(errorMessage);
+      error(errorMessage);
+      throw err;
+    }
+  };
+
+  // Compléter le profil (utilisé notamment après authentification sociale)
+  const completeProfile = async (profileData) => {
+    setAuthError(null);
+    try {
+      console.log("completeProfile - Envoi des données pour complétion:", profileData);
+      
+      // Envoyer les données au backend
+      const response = await api.patch('/accounts/profile/complete/', profileData);
+      
+      console.log("completeProfile - Réponse reçue:", response.data);
+      
+      // Mettre à jour l'utilisateur dans l'état
+      setCurrentUser(response.data);
+      
+      // Nettoyer le flag de nouvel utilisateur social
+      localStorage.removeItem('is_new_social_user');
+      
+      console.log("completeProfile - Profil complété avec succès, utilisateur mis à jour");
+      console.log("completeProfile - Nouvel état utilisateur:", response.data);
+      
+      success('Profil complété avec succès');
+      return response.data;
+    } catch (err) {
+      console.error('Erreur lors de la complétion du profil:', err);
+      
+      // Analyser l'erreur pour fournir un message plus spécifique
+      let errorMessage = 'Une erreur est survenue lors de la complétion du profil.';
+      
+      if (err.response?.data) {
+        // Si le backend renvoie des erreurs spécifiques
+        const errorData = err.response.data;
+        if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.phone_number) {
+          errorMessage = `Téléphone: ${errorData.phone_number[0]}`;
+        } else if (errorData.user_type) {
+          errorMessage = `Type d'utilisateur: ${errorData.user_type[0]}`;
+        } else if (errorData.non_field_errors) {
+          errorMessage = errorData.non_field_errors[0];
+        }
+      }
       
       setAuthError(errorMessage);
       error(errorMessage);
@@ -321,6 +416,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Vérifier si l'utilisateur vient d'une authentification sociale et doit compléter son profil
+  const isNewSocialUser = () => {
+    console.log("isNewSocialUser - Vérification du flag:", localStorage.getItem('is_new_social_user'));
+    return localStorage.getItem('is_new_social_user') === 'true';
+  };
+
   // Vérifier si l'utilisateur est un propriétaire
   const isOwner = () => {
     return currentUser?.user_type === 'owner';
@@ -340,7 +441,6 @@ export const AuthProvider = ({ children }) => {
     return currentUser?.profile?.verification_status === 'pending';
   };
   
-
   // Valeur du contexte
   const value = {
     currentUser,
@@ -354,12 +454,14 @@ export const AuthProvider = ({ children }) => {
     requestPasswordReset,
     confirmPasswordReset,
     updateProfile,
+    completeProfile,
     verifyIdentity,
     loginWithGoogle,
     loginWithFacebook,
     linkSocialAccount,
     unlinkSocialAccount,
     getLinkedSocialAccounts,
+    isNewSocialUser,
     isOwner,
     isTenant,
     isVerified,

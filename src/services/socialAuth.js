@@ -11,9 +11,14 @@ class SocialAuthService {
    * Redirige vers la page d'authentification Google
    */
   initiateGoogleAuth() {
+    console.log("Initiation de l'authentification Google");
+    // Stocker l'URL actuelle pour y revenir après authentification (si nécessaire)
+    localStorage.setItem('auth_redirect_from', window.location.pathname);
+    
     // En production, cette URL serait récupérée depuis l'API backend
     const googleAuthUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1'}/auth/google/`;
     
+    console.log("Redirection vers:", googleAuthUrl);
     // Rediriger vers l'URL d'authentification Google
     window.location.href = googleAuthUrl;
   }
@@ -23,6 +28,9 @@ class SocialAuthService {
    * Redirige vers la page d'authentification Facebook
    */
   initiateFacebookAuth() {
+    // Stocker l'URL actuelle pour y revenir après authentification (si nécessaire)
+    localStorage.setItem('auth_redirect_from', window.location.pathname);
+    
     // En production, cette URL serait récupérée depuis l'API backend
     const facebookAuthUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1'}/auth/facebook/`;
     
@@ -54,36 +62,57 @@ class SocialAuthService {
   /**
    * Vérifie si l'URL actuelle contient des paramètres de redirection d'authentification sociale
    * et traite l'authentification si nécessaire
-   * @returns {Promise<Object|null>} - Promesse résolue avec les tokens ou null si pas de paramètres
+   * @returns {Promise<Object|null>} - Promesse résolue avec les tokens et les infos ou null si pas de paramètres
    */
   async checkAuthRedirect() {
+    console.log("checkAuthRedirect - Vérification des paramètres de redirection");
+    
     const urlParams = new URLSearchParams(window.location.search);
     const provider = urlParams.get('provider');
-    const code = urlParams.get('code');
-    const state = urlParams.get('state');
+    const accessToken = urlParams.get('access_token');
+    const refreshToken = urlParams.get('refresh_token');
+    const isNewUser = urlParams.get('is_new') === 'true';
     const error = urlParams.get('error');
+    
+    console.log("checkAuthRedirect - Paramètres extraits:", { 
+      provider, 
+      accessTokenExists: !!accessToken,
+      refreshTokenExists: !!refreshToken,
+      isNewUser,
+      error
+    });
     
     // Vérifier s'il y a une erreur
     if (error) {
+      console.error("checkAuthRedirect - Erreur d'authentification:", error);
       throw new Error(`Erreur d'authentification: ${error}`);
     }
     
-    // Vérifier si nous avons un provider et un code
-    if (provider && code) {
+    // Vérifier si nous avons un provider et des tokens
+    if (provider && accessToken && refreshToken) {
       try {
-        // Échanger le code contre un token
-        const tokenData = await this.exchangeAuthCode(provider, code, state);
+        console.log("checkAuthRedirect - Paramètres d'authentification valides");
         
         // Nettoyer l'URL (supprimer les paramètres d'authentification)
         const url = new URL(window.location.href);
         url.search = '';
         window.history.replaceState({}, document.title, url.toString());
         
-        return tokenData;
+        console.log("checkAuthRedirect - URL nettoyée, retour des informations d'authentification");
+        
+        // Retourner les informations d'authentification
+        return {
+          access: accessToken,
+          refresh: refreshToken,
+          provider,
+          isNewUser
+        };
       } catch (error) {
         console.error('Erreur lors du traitement de la redirection d\'authentification:', error);
         throw error;
       }
+    } else {
+      console.log("checkAuthRedirect - Aucun paramètre d'authentification trouvé");
     }
     
     return null;

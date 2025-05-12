@@ -5,12 +5,12 @@ import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import Lottie from 'react-lottie';
-import loadingAnimation from '../assets/animations/loading-animation.json'; // Placez un fichier d'animation JSON ici
+import loadingAnimation from '../assets/animations/loading-animation.json'; // Animation JSON
 
 const AuthCallback = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser } = useAuth();
+  const { currentUser, isNewSocialUser, socialAuthInProgress } = useAuth();
   const { success, error: notifyError } = useNotification();
   const [isProcessing, setIsProcessing] = useState(true);
   const [authStatus, setAuthStatus] = useState('loading');
@@ -27,57 +27,126 @@ const AuthCallback = () => {
   };
 
   useEffect(() => {
-    // Cette page ne devrait être accessible que depuis une redirection OAuth
+    console.log("AuthCallback - Début du traitement");
+    console.log("AuthCallback - État actuel:", {
+      currentUser: !!currentUser,
+      isNewSocialUser: isNewSocialUser(),
+      socialAuthInProgress,
+      locationSearch: location.search
+    });
+
+    // Vérifier d'abord si les paramètres sont dans l'URL (cas normal)
     const params = new URLSearchParams(location.search);
     const provider = params.get('provider');
     const accessToken = params.get('access_token');
     const refreshToken = params.get('refresh_token');
     const authError = params.get('error');
+    const isNewUser = params.get('is_new') === 'true';
 
+    console.log("AuthCallback - Paramètres URL:", {
+      provider,
+      accessTokenExists: !!accessToken,
+      refreshTokenExists: !!refreshToken,
+      authError,
+      isNewUser
+    });
+
+    // Si nous avons une erreur dans l'URL
     if (authError) {
+      console.log("AuthCallback - Erreur détectée dans l'URL:", authError);
       setAuthStatus('error');
       setMessage(`Erreur d'authentification: ${authError}`);
       notifyError(`Erreur d'authentification: ${authError}`);
       
-      // Rediriger vers la page de connexion après un délai
       setTimeout(() => {
         navigate('/login');
       }, 3000);
       return;
     }
 
-    if (!provider || !accessToken || !refreshToken) {
-      setIsProcessing(false);
-      setAuthStatus('error');
-      setMessage("Paramètres d'authentification manquants");
-      notifyError("Paramètres d'authentification manquants");
-      
-      // Rediriger vers la page de connexion après un délai
-      setTimeout(() => {
-        navigate('/login');
-      }, 3000);
+    // Si nous avons tous les paramètres nécessaires dans l'URL
+    if (provider && accessToken && refreshToken) {
+      console.log("AuthCallback - Traitement des paramètres URL");
+      handleUrlParams(provider, accessToken, refreshToken, isNewUser);
       return;
     }
 
-    // Stocker les tokens dans le localStorage
+    // Si nous n'avons pas de paramètres dans l'URL, mais que l'authentification sociale est en cours
+    // ou que nous avons un utilisateur connecté, c'est que le traitement a déjà été fait
+    if (socialAuthInProgress || currentUser || localStorage.getItem('access_token')) {
+      console.log("AuthCallback - Authentification déjà traitée, gestion de la redirection");
+      handleAlreadyAuthenticatedUser();
+      return;
+    }
+
+    // Sinon, c'est une erreur - nous n'avons pas les paramètres nécessaires
+    console.log("AuthCallback - Aucun paramètre d'authentification trouvé");
+    setAuthStatus('error');
+    setMessage("Paramètres d'authentification manquants");
+    notifyError("Paramètres d'authentification manquants");
+    
+    setTimeout(() => {
+      navigate('/login');
+    }, 3000);
+  }, []);
+
+  const handleUrlParams = (provider, accessToken, refreshToken, isNewUser) => {
+    console.log("AuthCallback - Gestion des paramètres URL");
+    
+    // Stocker les tokens
     localStorage.setItem('access_token', accessToken);
     localStorage.setItem('refresh_token', refreshToken);
+    
+    if (isNewUser) {
+      localStorage.setItem('is_new_social_user', 'true');
+    }
 
-    // Rediriger vers la page d'accueil ou la page précédente
     setAuthStatus('success');
     setMessage(`Authentification réussie via ${provider === 'google' ? 'Google' : 'Facebook'}`);
     success(`Authentification réussie via ${provider === 'google' ? 'Google' : 'Facebook'}`);
     
-    // Si c'est une première connexion, rediriger vers la page de bienvenue
-    // sinon vers la page d'accueil
-    const redirectPath = localStorage.getItem('auth_redirect') || '/welcome';
-    localStorage.removeItem('auth_redirect'); // Nettoyer après utilisation
+    redirectUser(isNewUser);
+  };
+
+  const handleAlreadyAuthenticatedUser = () => {
+    console.log("AuthCallback - Gestion de l'utilisateur déjà authentifié");
     
-    // Donner un peu de temps pour voir l'animation de succès
+    // Vérifier si c'est un nouvel utilisateur social
+    const isNewUser = isNewSocialUser();
+    
+    setAuthStatus('success');
+    setMessage('Authentification réussie');
+    success('Authentification réussie via authentification sociale.');
+    
+    redirectUser(isNewUser);
+  };
+
+  const redirectUser = (isNewUser) => {
+    console.log("AuthCallback - Redirection de l'utilisateur, isNewUser:", isNewUser);
+    
+    let redirectPath = '/';
+    
+    if (isNewUser) {
+      // Pour les nouveaux utilisateurs, rediriger vers la page de complétion de profil
+      redirectPath = '/auth/complete-profile';
+      console.log("AuthCallback - Redirection vers complétion de profil");
+    } else {
+      // Pour les utilisateurs existants, rediriger vers la page principale ou précédente
+      const previousPath = localStorage.getItem('auth_redirect_from');
+      if (previousPath && previousPath !== '/login' && previousPath !== '/register') {
+        redirectPath = previousPath;
+      } else {
+        redirectPath = '/';
+      }
+      console.log("AuthCallback - Redirection vers:", redirectPath);
+      localStorage.removeItem('auth_redirect_from');
+    }
+    
+    // Attendre un peu pour l'animation, puis rediriger
     setTimeout(() => {
-      navigate(redirectPath);
+      navigate(redirectPath, { replace: true });
     }, 1500);
-  }, [navigate, location.search, notifyError, success]);
+  };
 
   return (
     <Layout>

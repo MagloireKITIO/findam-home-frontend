@@ -1,6 +1,6 @@
 // src/pages/CompleteProfile.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiUser, FiPhone, FiHome, FiCheck, FiMapPin } from 'react-icons/fi';
 import Layout from '../components/layout/Layout';
@@ -8,12 +8,10 @@ import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
-import api from '../services/api';
 
 const CompleteProfile = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { currentUser, updateProfile } = useAuth();
+  const { currentUser, completeProfile, isNewSocialUser } = useAuth();
   const { success, error: notifyError } = useNotification();
   
   // États pour stocker les données du formulaire
@@ -24,20 +22,35 @@ const CompleteProfile = () => {
     user_type: '',
     bio: ''
   });
+  
   const [loading, setLoading] = useState(false);
   
-  // Récupérer les tokens des paramètres d'URL
+  // Vérifier si l'utilisateur est bien un nouvel utilisateur social
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token');
+    console.log("CompleteProfile - Vérification de l'état de l'utilisateur");
+    console.log("CompleteProfile - isNewSocialUser:", isNewSocialUser());
+    console.log("CompleteProfile - currentUser:", !!currentUser);
     
-    if (accessToken && refreshToken) {
-      // Stocker les tokens s'ils existent dans l'URL
-      localStorage.setItem('access_token', accessToken);
-      localStorage.setItem('refresh_token', refreshToken);
+    // Si l'utilisateur n'est pas un nouvel utilisateur social et n'est pas en cours de chargement
+    if (!isNewSocialUser() && !loading) {
+      console.log("CompleteProfile - Utilisateur non nouveau, redirection vers /");
+      navigate('/', { replace: true });
+      return;
     }
-  }, [location]);
+    
+    // Préremplir le formulaire avec les données disponibles
+    if (currentUser) {
+      console.log("CompleteProfile - Préremplissage du formulaire avec les données existantes");
+      setFormData(prev => ({
+        ...prev,
+        phone_number: currentUser.phone_number !== "+0000000000" ? currentUser.phone_number : '',
+        city: currentUser.profile?.city || '',
+        country: currentUser.profile?.country || 'Cameroun',
+        user_type: currentUser.user_type && currentUser.user_type !== 'tenant' ? currentUser.user_type : '',
+        bio: currentUser.profile?.bio || ''
+      }));
+    }
+  }, [currentUser, navigate, isNewSocialUser, loading]);
   
   // Gestion des changements dans le formulaire
   const handleChange = (e) => {
@@ -48,6 +61,8 @@ const CompleteProfile = () => {
   // Soumettre le formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    console.log("CompleteProfile - Début de la soumission du formulaire");
     
     if (!formData.user_type) {
       notifyError('Veuillez sélectionner votre type de compte (locataire ou propriétaire)');
@@ -62,7 +77,7 @@ const CompleteProfile = () => {
     try {
       setLoading(true);
       
-      // Mettre à jour le profil utilisateur
+      // Mettre à jour le profil utilisateur via la méthode completeProfile du contexte
       const updatedData = {
         phone_number: formData.phone_number,
         user_type: formData.user_type,
@@ -73,12 +88,21 @@ const CompleteProfile = () => {
         }
       };
       
-      await api.patch('/accounts/profile/complete/', updatedData);
+      console.log("CompleteProfile - Envoi des données:", updatedData);
+      
+      // Attendre que la complétion du profil soit terminée
+      const updatedUser = await completeProfile(updatedData);
+      
+      console.log("CompleteProfile - Profil complété, utilisateur mis à jour:", !!updatedUser);
       
       success('Profil complété avec succès!');
       
-      // Rediriger vers la page de bienvenue
-      navigate('/welcome', { replace: true });
+      // Attendre un court moment pour s'assurer que l'état est mis à jour
+      setTimeout(() => {
+        console.log("CompleteProfile - Redirection vers /welcome");
+        navigate('/welcome', { replace: true });
+      }, 500);
+      
     } catch (err) {
       console.error('Erreur lors de la complétion du profil:', err);
       notifyError('Une erreur est survenue. Veuillez réessayer.');
@@ -86,6 +110,20 @@ const CompleteProfile = () => {
       setLoading(false);
     }
   };
+  
+  // Si nous ne sommes pas censés être sur cette page (pas de nouvel utilisateur social)
+  if (!isNewSocialUser()) {
+    return (
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center px-4 py-12">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900">Redirection en cours...</h1>
+            <p className="text-gray-600 mt-2">Vous allez être redirigé vers la page d'accueil.</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
   
   // Animations
   const containerVariants = {
