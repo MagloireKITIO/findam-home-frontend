@@ -10,9 +10,12 @@ import {
 import Button from '../common/Button';
 import Input from '../common/Input';
 import Modal from '../common/Modal';
+import { useAuth } from '../../context/AuthContext';
+import OwnerPaymentWarning from './OwnerPaymentWarning';
 
 const AddPaymentMethodModal = ({ isOpen, onClose, onAdd, loading = false }) => {
   const [step, setStep] = useState(1); // 1: Type, 2: Détails, 3: Confirmation
+  const { currentUser } = useAuth();
   const [selectedType, setSelectedType] = useState('');
   const [formData, setFormData] = useState({
     payment_type: '',
@@ -225,7 +228,10 @@ const AddPaymentMethodModal = ({ isOpen, onClose, onAdd, loading = false }) => {
   const renderStepTwo = () => (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-gray-900">Détails de la méthode</h3>
-      
+      {/* Avertissement pour les propriétaires */}
+        {currentUser?.user_type === 'owner' && (
+        <OwnerPaymentWarning paymentType={selectedType} />
+        )}
       {/* Nom de la méthode */}
       <Input
         label="Nom de la méthode"
