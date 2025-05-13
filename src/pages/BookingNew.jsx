@@ -164,19 +164,19 @@ const BookingNew = () => {
   // Validation du code promo
   const validatePromoCode = async () => {
     if (!bookingData.promoCode.trim()) return;
-
+  
     setPromoCodeLoading(true);
     setPromoCodeError(null);
     setPromoCodeDetails(null);
-
+  
     try {
-      const response = await api.get('/bookings/promo-codes/validate-code/', {
+      const response = await api.get('/bookings/promo-codes/validate_code/', {
         params: {
           code: bookingData.promoCode,
           property: propertyId
         }
       });
-
+  
       if (response.data.valid) {
         setPromoCodeDetails(response.data.promo_code);
         success('Code promo appliqué avec succès');
@@ -185,7 +185,13 @@ const BookingNew = () => {
       }
     } catch (err) {
       console.error('Erreur lors de la validation du code promo:', err);
-      setPromoCodeError('Erreur lors de la validation du code promo');
+      
+      // Afficher l'erreur spécifique du serveur
+      if (err.response?.data?.detail) {
+        setPromoCodeError(err.response.data.detail);
+      } else {
+        setPromoCodeError('Erreur lors de la validation du code promo');
+      }
     } finally {
       setPromoCodeLoading(false);
     }

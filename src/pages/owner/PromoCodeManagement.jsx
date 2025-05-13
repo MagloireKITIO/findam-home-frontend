@@ -13,7 +13,10 @@ import {
   FiHome,
   FiUser,
   FiInfo,
-  FiCalendar
+  FiCalendar,
+  FiUsers,
+  FiEyeOff,
+  FiEye
 } from 'react-icons/fi';
 
 import Layout from '../../components/layout/Layout';
@@ -41,6 +44,7 @@ const PromoCodeManagement = () => {
     isActive: 'all', // all, active, expired
     recipient: 'all' // all, specific, none
   });
+  const [visibleCodes, setVisibleCodes] = useState(new Set());
   
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -48,7 +52,7 @@ const PromoCodeManagement = () => {
   const [selectedPromoCode, setSelectedPromoCode] = useState(null);
   const [newPromoCodeForm, setNewPromoCodeForm] = useState({
     property: '',
-    tenant: '',
+    tenant_email: '',
     discount_percentage: 10,
     expiry_date: '',
     notes: ''
@@ -165,9 +169,9 @@ const PromoCodeManagement = () => {
         expiry_date: new Date(newPromoCodeForm.expiry_date).toISOString()
       };
       
-      // Ajouter le client si spécifié
-      if (newPromoCodeForm.tenant) {
-        payload.tenant = newPromoCodeForm.tenant;
+      // Ajouter l'email du client si spécifié
+      if (newPromoCodeForm.tenant_email && newPromoCodeForm.tenant_email.trim()) {
+        payload.tenant_email = newPromoCodeForm.tenant_email.trim();
       }
       
       const response = await api.post('/bookings/promo-codes/', payload);
@@ -181,7 +185,7 @@ const PromoCodeManagement = () => {
       // Réinitialiser le formulaire
       setNewPromoCodeForm({
         property: properties.length > 0 ? properties[0].id : '',
-        tenant: '',
+        tenant_email: '', // Changé de 'tenant' à 'tenant_email'
         discount_percentage: 10,
         expiry_date: '',
         notes: ''
@@ -192,7 +196,17 @@ const PromoCodeManagement = () => {
       
     } catch (err) {
       console.error('Erreur lors de la création du code promo:', err);
-      notifyError('Une erreur est survenue lors de la création du code promo');
+      
+      // Afficher l'erreur spécifique du serveur si disponible
+      if (err.response?.data?.detail) {
+        notifyError(err.response.data.detail);
+      } else if (err.response?.data) {
+        // Afficher les erreurs de validation
+        const errors = Object.values(err.response.data).flat();
+        notifyError(errors.join('. '));
+      } else {
+        notifyError('Une erreur est survenue lors de la création du code promo');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -200,29 +214,37 @@ const PromoCodeManagement = () => {
   
   // Supprimer un code promo
   const handleDeletePromoCode = async () => {
-    if (!selectedPromoCode) return;
-    
+    if (!selectedPromoCode || !selectedPromoCode.id) return;
+  
     try {
       setIsSubmitting(true);
-      
       await api.delete(`/bookings/promo-codes/${selectedPromoCode.id}/`);
       
-      // Supprimer le code de la liste
       setPromoCodes(prev => prev.filter(code => code.id !== selectedPromoCode.id));
       setFilteredPromoCodes(prev => prev.filter(code => code.id !== selectedPromoCode.id));
       
       success('Code promo supprimé avec succès');
-      
-      // Fermer la modal
       setShowDeleteModal(false);
       setSelectedPromoCode(null);
-      
     } catch (err) {
       console.error('Erreur lors de la suppression du code promo:', err);
       notifyError('Une erreur est survenue lors de la suppression du code promo');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+   // Fonction pour basculer la visibilité du code
+   const toggleCodeVisibility = (codeId) => {
+    setVisibleCodes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(codeId)) {
+        newSet.delete(codeId);
+      } else {
+        newSet.add(codeId);
+      }
+      return newSet;
+    });
   };
   
   // Copier un code promo dans le presse-papiers
@@ -337,9 +359,20 @@ const PromoCodeManagement = () => {
                   transition={{ delay: index * 0.05 }}
                   className="hover:bg-gray-50"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
+                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <span className="font-mono font-medium text-gray-900">{code.code}</span>
+                      {visibleCodes.has(code.id) ? (
+                        <span className="font-mono font-medium text-gray-900">{code.code}</span>
+                      ) : (
+                        <span className="font-mono font-medium text-gray-900">•••••••</span>
+                      )}
+                      <button 
+                        onClick={() => toggleCodeVisibility(code.id)}
+                        className="ml-2 text-gray-400 hover:text-gray-600"
+                        title={visibleCodes.has(code.id) ? "Masquer le code" : "Afficher le code"}
+                      >
+                        {visibleCodes.has(code.id) ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                      </button>
                       <button 
                         onClick={() => handleCopyCode(code.code)}
                         className="ml-2 text-gray-400 hover:text-gray-600"
@@ -353,7 +386,16 @@ const PromoCodeManagement = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{code.property_title}</div>
+                    {/* CORRECTION : Utiliser un nom de propriété qui existe vraiment */}
+                    <div className="text-sm font-medium text-gray-900">
+                      {code.property?.title || code.property_title || 'Logement non défini'}
+                    </div>
+                    {/* Afichage de la ville si disponible */}
+                    {code.property?.city && (
+                      <div className="text-xs text-gray-500">
+                        {code.property.city.name}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{code.discount_percentage}%</div>
@@ -612,15 +654,15 @@ const PromoCodeManagement = () => {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Client spécifique (optionnel)
+                  Email du client (optionnel)
                 </label>
                 <Input
-                  type="text"
-                  placeholder="Email ou ID du client"
-                  value={newPromoCodeForm.tenant}
+                  type="email"
+                  placeholder="exemple@email.com"
+                  value={newPromoCodeForm.tenant_email}
                   onChange={(e) => setNewPromoCodeForm({
                     ...newPromoCodeForm,
-                    tenant: e.target.value
+                    tenant_email: e.target.value
                   })}
                   className="w-full"
                 />
