@@ -405,25 +405,60 @@ const BookingDetail = () => {
     }
   };
 
-  // Télécharger le reçu
-  const downloadReceipt = () => {
-    // Cette fonction serait implémentée pour appeler l'API et télécharger le PDF du reçu
-    notifyError('Cette fonctionnalité sera disponible prochainement');
-  };
-
   const calculateNights = (checkInDate, checkOutDate) => {
-    if (!checkInDate || !checkOutDate) return 0;
-    
-    const checkIn = new Date(checkInDate);
-    const checkOut = new Date(checkOutDate);
-    
-    // Calculer la différence en millisecondes puis convertir en jours
-    const diffTime = Math.abs(checkOut - checkIn);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    return diffDays;
-  };
+ if (!checkInDate || !checkOutDate) return 0;
+ 
+ const checkIn = new Date(checkInDate);
+ const checkOut = new Date(checkOutDate);
+ 
+ // Calculer la différence en millisecondes puis convertir en jours
+ const diffTime = Math.abs(checkOut - checkIn);
+ const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+ 
+ return diffDays;
+};
 
+
+  // Télécharger le reçu
+  const downloadReceipt = async () => {
+    try {
+      setLoading(true);
+      
+      // Faire la requête pour télécharger le PDF
+      const response = await api.get(`/bookings/bookings/${id}/download_receipt/`, {
+        responseType: 'blob', // Important pour les fichiers
+      });
+      
+      // Créer un blob et un lien de téléchargement
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      
+      // Créer un élément <a> temporaire pour déclencher le téléchargement
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `facture-${id.substring(0, 8)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Nettoyer
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      success('Facture téléchargée avec succès');
+    } catch (err) {
+      console.error('Erreur lors du téléchargement de la facture:', err);
+      
+      if (err.response?.status === 403) {
+        notifyError('Vous n\'êtes pas autorisé à télécharger cette facture');
+      } else if (err.response?.status === 400) {
+        notifyError('La facture n\'est disponible que pour les réservations payées');
+      } else {
+        notifyError('Erreur lors du téléchargement de la facture');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
   // Rendu lors du chargement ou erreur
   if (loading) {
     return (
