@@ -15,6 +15,7 @@ import api from '../services/api';
 import websocketService from '../services/websocket';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
+import AntiDisintermediationWarning from '../components/communications/AntiDisintermediationWarning';
 
 const Messages = () => {
   const location = useLocation();
@@ -289,7 +290,14 @@ const Messages = () => {
       
     } catch (err) {
       console.error('Erreur lors de l\'envoi du message:', err);
-      notifyError('Une erreur est survenue lors de l\'envoi du message.');
+      
+      // Vérifier si c'est un message bloqué
+      if (err.response?.data?.blocked) {
+        // Afficher le message de blocage complet
+        notifyError(err.response.data.content);
+      } else {
+        notifyError('Une erreur est survenue lors de l\'envoi du message.');
+      }
     }
   };
 
@@ -500,6 +508,13 @@ const Messages = () => {
                     
                     {/* Messages */}
                     <div className="flex-grow overflow-y-auto p-4">
+                    {activeConversation && (
+                        <AntiDisintermediationWarning
+                          hasFilteredContent={messages.some(msg => msg.has_filtered_content)}
+                          warningMessage={messages.find(msg => msg.anti_disintermediation_warning)?.anti_disintermediation_warning}
+                          className="mb-4"
+                        />
+                      )}
                       {loadingMessages ? (
                         <div className="flex items-center justify-center h-full">
                           <LoadingSpinner size="lg" />

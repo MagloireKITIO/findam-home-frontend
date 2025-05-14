@@ -251,7 +251,7 @@ const LandingPage = () => {
                           value={searchParams.location}
                           onChange={handleSearchChange}
                           placeholder="Où souhaitez-vous aller ?"
-                          className="pl-12 w-full px-4 py-4 rounded-xl border-2 border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                          className="pl-12 w-full px-4 py-4 rounded-xl border-2 border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all  text-gray-900 placeholder-gray-500 bg-white"
                         />
                       </div>
                     </div>
@@ -266,7 +266,7 @@ const LandingPage = () => {
                           name="guests"
                           value={searchParams.guests}
                           onChange={handleSearchChange}
-                          className="pl-12 w-full px-4 py-4 rounded-xl border-2 border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all appearance-none bg-white"
+                          className="pl-12 w-full px-4 py-4 rounded-xl border-2 border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all appearance-none text-gray-900 bg-white"
                         >
                           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                             <option key={num} value={num}>
@@ -290,7 +290,7 @@ const LandingPage = () => {
                           name="checkIn"
                           value={searchParams.checkIn}
                           onChange={handleSearchChange}
-                          className="pl-12 w-full px-4 py-4 rounded-xl border-2 border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                          className="pl-12 w-full px-4 py-4 rounded-xl border-2 border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-gray-900 bg-white"
                         />
                       </div>
                     </div>
@@ -306,7 +306,7 @@ const LandingPage = () => {
                           name="checkOut"
                           value={searchParams.checkOut}
                           onChange={handleSearchChange}
-                          className="pl-12 w-full px-4 py-4 rounded-xl border-2 border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                          className="pl-12 w-full px-4 py-4 rounded-xl border-2 border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-gray-900 bg-white"
                         />
                       </div>
                     </div>
