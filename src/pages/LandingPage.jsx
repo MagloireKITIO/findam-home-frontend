@@ -31,7 +31,7 @@ const LandingPage = () => {
       try {
         setLoading(true);
         
-        // Récupérer les propriétés populaires (les mieux notées)
+        // Récupérer les propriétés populaires
         const propertiesResponse = await api.get('/properties/properties/', {
           params: {
             ordering: '-avg_rating',
@@ -40,21 +40,13 @@ const LandingPage = () => {
             is_verified: true
           }
         });
-        const citiesResponse = await api.get('/properties/cities/');
-        // Récupérer les villes avec des propriétés
-        const properties = propertiesResponse.data.results || propertiesResponse.data || [];
-        const cities = citiesResponse.data.results || citiesResponse.data || [];
         
-        console.log('URL de la requête:', propertiesResponse.request?.responseURL);
-        console.log('Propriétés récupérées:', properties); 
-        console.log('Nombre de propriétés:', properties.length);
-        console.log('Status des propriétés:', properties.map(p => ({
-          id: p.id,
-          title: p.title,
-          is_published: p.is_published,
-          is_verified: p.is_verified
-        })));
-
+        // Récupérer les villes en vedette
+        const citiesResponse = await api.get('/properties/cities/featured/');
+        
+        const properties = propertiesResponse.data.results || propertiesResponse.data || [];
+        const cities = citiesResponse.data || [];
+        
         setPopularProperties(properties);
         setFeaturedCities(cities);
         
@@ -68,6 +60,8 @@ const LandingPage = () => {
 
     fetchData();
   }, []);
+
+  
 
   // Gérer les changements dans le formulaire de recherche
   const handleSearchChange = (e) => {
@@ -188,7 +182,7 @@ const LandingPage = () => {
                   className="flex items-center space-x-2 text-amber-300"
                 >
                   <FiStar className="fill-current" />
-                  <span className="text-sm font-medium">Plus de 1000+ logements vérifiés</span>
+                  <span className="text-sm font-medium">Plus de 100+ logements vérifiés</span>
                 </motion.div>
                 
                 <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight">
@@ -414,74 +408,83 @@ const LandingPage = () => {
 
       {/* Section des villes avec design moderne */}
       <section className="py-24 bg-white">
-        <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <div className="inline-flex items-center space-x-2 bg-amber-50 text-amber-600 px-4 py-2 rounded-full text-sm font-medium mb-4">
-              <FiMapPin className="fill-current" />
-              <span>Explorez le Cameroun</span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Destinations populaires
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Explorez nos principales destinations au Cameroun
-            </p>
-          </motion.div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {Array.isArray(featuredCities) && featuredCities.length > 0 ? (
-              featuredCities.slice(0, 6).map((city, index) => (
-                <motion.div
-                  key={city.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
+    <div className="container mx-auto px-4">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
+        className="text-center mb-16"
+      >
+        <div className="inline-flex items-center space-x-2 bg-amber-50 text-amber-600 px-4 py-2 rounded-full text-sm font-medium mb-4">
+          <FiMapPin className="fill-current" />
+          <span>Explorez le Cameroun</span>
+        </div>
+        <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+          Destinations populaires
+        </h2>
+        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          Explorez nos principales destinations au Cameroun
+        </p>
+      </motion.div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {featuredCities.length > 0 ? (
+          featuredCities.map((city, index) => (
+            <motion.div
+              key={city.id}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+            >
+              <Link to={`/properties?city=${city.id}`}>
+                <motion.div 
+                  whileHover={{ y: -8 }}
+                  className="relative rounded-3xl overflow-hidden h-80 shadow-xl group"
                 >
-                  <Link to={`/properties?city=${city.id}`}>
-                    <motion.div 
-                      whileHover={{ y: -8 }}
-                      className="relative rounded-3xl overflow-hidden h-80 shadow-xl group"
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10"></div>
+                  <motion.img 
+                    whileHover={{ scale: 1.1 }}
+                    transition={{ duration: 0.6 }}
+                    src={city.image_url || `https://source.unsplash.com/featured/600x400?${city.name},city`} 
+                    alt={city.name} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback vers Unsplash si l'image n'existe pas
+                      e.target.src = `https://source.unsplash.com/featured/600x400?${city.name},city`;
+                    }}
+                  />
+                  <div className="absolute bottom-0 left-0 p-8 text-white z-20">
+                    <h3 className="text-3xl font-bold mb-2">{city.name}</h3>
+                    <p className="text-blue-200 mb-2">
+                      {city.property_count} logement{city.property_count > 1 ? 's' : ''}
+                    </p>
+                    {city.description && (
+                      <p className="text-sm text-gray-200 line-clamp-2">{city.description}</p>
+                    )}
+                  </div>
+                  
+                  {/* Effet hover moderne */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    whileHover={{ opacity: 1 }}
+                    className="absolute inset-0 bg-gradient-to-t from-primary-600/90 to-transparent z-15 flex items-end p-8"
+                  >
+                    <motion.div
+                      initial={{ y: 20 }}
+                      whileHover={{ y: 0 }}
+                      className="text-white"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10"></div>
-                      <motion.img 
-                        whileHover={{ scale: 1.1 }}
-                        transition={{ duration: 0.6 }}
-                        src={`https://source.unsplash.com/featured/600x400?${city.name},city`} 
-                        alt={city.name} 
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute bottom-0 left-0 p-8 text-white z-20">
-                        <h3 className="text-3xl font-bold mb-2">{city.name}</h3>
-                        <p className="text-blue-200">Découvrir</p>
-                      </div>
-                      
-                      {/* Effet hover moderne */}
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        whileHover={{ opacity: 1 }}
-                        className="absolute inset-0 bg-gradient-to-t from-primary-600/90 to-transparent z-15 flex items-end p-8"
-                      >
-                        <motion.div
-                          initial={{ y: 20 }}
-                          whileHover={{ y: 0 }}
-                          className="text-white"
-                        >
-                          <p className="text-lg mb-4">Explorer {city.name}</p>
-                          <div className="w-12 h-0.5 bg-white"></div>
-                        </motion.div>
-                      </motion.div>
+                      <p className="text-lg mb-4">Explorer {city.name}</p>
+                      <div className="w-12 h-0.5 bg-white"></div>
                     </motion.div>
-                  </Link>
+                  </motion.div>
                 </motion.div>
-              ))
-            ) : (
+              </Link>
+            </motion.div>
+          ))
+        ) : (
               // Afficher des villes par défaut si l'API ne renvoie pas de données valides
               ['Douala', 'Yaoundé', 'Kribi', 'Limbé', 'Bafoussam', 'Garoua'].map((cityName, index) => (
                 <motion.div
