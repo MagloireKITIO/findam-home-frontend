@@ -151,28 +151,47 @@ const Messages = () => {
 
     // Établir la connexion WebSocket pour la conversation active
     const handleWebSocketMessage = (data) => {
+      console.log('WebSocket message reçu:', data);
+      
       // Gestion des différents types de messages WebSocket
       if (data.type === 'message' && data.message) {
-        // Ajouter le nouveau message à la liste
-        setMessages(prev => [...prev, data.message]);
+        // Vérifier si le message n'existe pas déjà
+        const messageExists = messages.find(msg => msg.id === data.message.id);
+        if (!messageExists) {
+          // Ajouter le nouveau message à la liste
+          setMessages(prev => [...prev, data.message]);
+        }
         
         // Marquer comme lu si c'est un message entrant
         if (data.message.sender_id !== currentUser.id) {
-          websocketService.markConversationAsRead(activeConversation.id);
+          // Attendre un peu avant de marquer comme lu pour permettre l'affichage
+          setTimeout(() => {
+            websocketService.markConversationAsRead(activeConversation.id);
+          }, 100);
         }
       } else if (data.type === 'typing') {
         // Montrer l'indicateur de frappe si c'est l'autre utilisateur
         if (data.user_id !== currentUser.id) {
           setOtherUserTyping(data.is_typing);
+          
+          // Auto-clear typing indicator après 5 secondes de sécurité
+          if (data.is_typing) {
+            setTimeout(() => {
+              setOtherUserTyping(false);
+            }, 5000);
+          }
         }
       } else if (data.type === 'read') {
         // Marquer les messages comme lus côté UI
-        setMessages(prev => prev.map(msg => ({
-          ...msg,
-          is_read: true
-        })));
+        if (data.user_id !== currentUser.id) {
+          setMessages(prev => prev.map(msg => ({
+            ...msg,
+            is_read: true
+          })));
+        }
       }
     };
+    
 
     websocketService.connectToConversation(activeConversation.id, handleWebSocketMessage);
 
@@ -248,6 +267,9 @@ const Messages = () => {
   const sendMessage = async () => {
     if (!newMessage.trim() || !activeConversation) return;
     
+    const messageContent = newMessage.trim();
+    setNewMessage(''); // Vider tout de suite pour une meilleure UX
+    
     try {
       // Arrêter l'indicateur de frappe
       setIsTyping(false);
@@ -256,15 +278,20 @@ const Messages = () => {
       }
       websocketService.sendTypingNotification(activeConversation.id, false);
       
-      // Envoyer le message via l'API
-      const response = await api.post('/communications/messages/', {
-        conversation: activeConversation.id,
-        content: newMessage,
-        message_type: 'text'
-      });
+      // Envoyer le message via WebSocket d'abord pour une transmission plus rapide
+      const sent = websocketService.sendMessage(activeConversation.id, messageContent);
       
-      // Ajouter le nouveau message à la liste (sera aussi reçu via WebSocket)
-      setMessages(prev => [...prev, response.data]);
+      // Si le WebSocket n'est pas connecté, utiliser l'API comme fallback
+      if (!sent) {
+        const response = await api.post('/communications/messages/', {
+          conversation: activeConversation.id,
+          content: messageContent,
+          message_type: 'text'
+        });
+        
+        // Ajouter le nouveau message à la liste
+        setMessages(prev => [...prev, response.data]);
+      }
       
       // Mettre à jour les conversations pour montrer le dernier message
       setConversations(prev => prev.map(conv => 
@@ -272,28 +299,25 @@ const Messages = () => {
           ? { 
               ...conv, 
               last_message: {
-                content: newMessage,
+                content: messageContent,
                 sender_id: currentUser.id,
                 sender_name: `${currentUser.first_name} ${currentUser.last_name}`,
                 created_at: new Date().toISOString(),
                 message_type: 'text'
-              }
+              },
+              unread_count: 0 // Reset car c'est nous qui envoyons
             } 
           : conv
       ));
       
-      // Envoyer aussi via WebSocket pour une transmission plus rapide
-      websocketService.sendMessage(activeConversation.id, newMessage);
-      
-      // Réinitialiser le champ de message
-      setNewMessage('');
-      
     } catch (err) {
       console.error('Erreur lors de l\'envoi du message:', err);
       
+      // Remettre le message dans le champ en cas d'erreur
+      setNewMessage(messageContent);
+      
       // Vérifier si c'est un message bloqué
       if (err.response?.data?.blocked) {
-        // Afficher le message de blocage complet
         notifyError(err.response.data.content);
       } else {
         notifyError('Une erreur est survenue lors de l\'envoi du message.');

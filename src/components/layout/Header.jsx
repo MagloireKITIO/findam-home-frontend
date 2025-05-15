@@ -45,7 +45,7 @@ const Header = () => {
     const authenticatedLinks = [
       ...commonLinks,
       { to: '/bookings', icon: <FiCalendar />, text: 'Réservations' },
-      { to: '/messages', icon: <FiMessageSquare />, text: 'Messages' },
+      // { to: '/messages', icon: <FiMessageSquare />, text: 'Messages' },
     ];
 
     if (currentUser.user_type === 'owner') {

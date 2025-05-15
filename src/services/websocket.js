@@ -1,4 +1,4 @@
-// src/services/websocket.js
+// src/services/websocket.js - Version corrigée
 /**
  * Service WebSocket pour la messagerie en temps réel
  * 
@@ -21,6 +21,7 @@ class WebSocketService {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
     this.reconnectTimeout = null;
+    this.typingTimeouts = new Map(); // Gestion des timeouts de frappe
   }
 
   /**
@@ -70,7 +71,7 @@ class WebSocketService {
           // Mettre à jour les notifications récentes dans le cache
           const cachedNotifications = notificationCache.getCachedRecentNotifications();
           if (cachedNotifications) {
-            // Ajouter la nouvelle notification au début et garder les 4 premières
+            // Ajouter la nouvelle notification au début et garder les 5 premières
             const updatedNotifications = [
               data.notification,
               ...cachedNotifications.slice(0, 4)
@@ -154,6 +155,9 @@ class WebSocketService {
     // Configurer les gestionnaires d'événements
     socket.onopen = () => {
       console.log(`Connexion WebSocket à la conversation ${conversationId} établie`);
+      
+      // Marquer automatiquement la conversation comme lue lors de la connexion
+      this.markConversationAsRead(conversationId);
     };
 
     socket.onmessage = (event) => {
@@ -194,7 +198,7 @@ class WebSocketService {
    * Envoyer un message à une conversation spécifique
    * @param {string} conversationId - ID de la conversation
    * @param {string} content - Contenu du message
-   * @param {string} type - Type de message (texte, image, etc.)
+   * @param {string} type - Type de message (message, typing, read)
    * @returns {boolean} - true si l'envoi a réussi, false sinon
    */
   sendMessage(conversationId, content, type = 'message') {
@@ -229,6 +233,29 @@ class WebSocketService {
     const socket = this.conversationSockets.get(conversationId);
     if (socket.readyState !== WebSocket.OPEN) {
       return false;
+    }
+
+    // Gérer les timeouts de frappe
+    if (isTyping) {
+      // Annuler le timeout précédent s'il existe
+      const existingTimeout = this.typingTimeouts.get(conversationId);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+      }
+      
+      // Créer un nouveau timeout pour arrêter la frappe automatiquement
+      const timeout = setTimeout(() => {
+        this.sendTypingNotification(conversationId, false);
+      }, 3000);
+      
+      this.typingTimeouts.set(conversationId, timeout);
+    } else {
+      // Annuler le timeout si on arrête de taper
+      const existingTimeout = this.typingTimeouts.get(conversationId);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        this.typingTimeouts.delete(conversationId);
+      }
     }
 
     socket.send(JSON.stringify({
@@ -266,6 +293,13 @@ class WebSocketService {
    * @param {string} conversationId - ID de la conversation
    */
   disconnectFromConversation(conversationId) {
+    // Nettoyer le timeout de frappe
+    const typingTimeout = this.typingTimeouts.get(conversationId);
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+      this.typingTimeouts.delete(conversationId);
+    }
+    
     if (this.conversationSockets.has(conversationId)) {
       const socket = this.conversationSockets.get(conversationId);
       socket.close();
@@ -278,6 +312,10 @@ class WebSocketService {
    * Se déconnecter de toutes les conversations
    */
   disconnectFromAllConversations() {
+    // Nettoyer tous les timeouts de frappe
+    this.typingTimeouts.forEach(timeout => clearTimeout(timeout));
+    this.typingTimeouts.clear();
+    
     this.conversationSockets.forEach((socket, id) => {
       socket.close();
     });
