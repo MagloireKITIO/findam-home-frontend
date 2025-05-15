@@ -82,6 +82,12 @@ const UserProfile = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validation côté client
+      if (file.size > 5 * 1024 * 1024) {
+        notifyError('L\'image ne doit pas dépasser 5MB');
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onloadend = () => {
         setProfileImage(reader.result);
@@ -89,7 +95,7 @@ const UserProfile = () => {
           ...prev,
           profile: {
             ...prev.profile,
-            avatar: file // Stockez le fichier pour l'envoi au serveur
+            avatar: file
           }
         }));
       };
@@ -110,18 +116,28 @@ const UserProfile = () => {
       formData.append('last_name', profileData.last_name);
       formData.append('phone_number', profileData.phone_number);
       
-      // Ajout des champs du profil
-      formData.append('profile.bio', profileData.profile.bio);
-      formData.append('profile.birth_date', profileData.profile.birth_date);
-      formData.append('profile.city', profileData.profile.city);
-      formData.append('profile.country', profileData.profile.country);
+      // Ajout des champs du profil avec formatage de la date
+      formData.append('bio', profileData.profile.bio || '');
+      
+      // Formater la date correctement si elle existe
+      if (profileData.profile.birth_date) {
+        // S'assurer que la date est au format YYYY-MM-DD
+        const date = new Date(profileData.profile.birth_date);
+        if (!isNaN(date.getTime())) {
+          const formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD
+          formData.append('birth_date', formattedDate);
+        }
+      }
+      
+      formData.append('city', profileData.profile.city || '');
+      formData.append('country', profileData.profile.country || '');
       
       // Ajout de l'avatar si modifié
       if (profileData.profile.avatar instanceof File) {
-        formData.append('profile.avatar', profileData.profile.avatar);
+        formData.append('avatar', profileData.profile.avatar);
       }
       
-      // Envoi des données au serveur
+      // Utiliser patchData avec FormData
       await patchData('/accounts/profile/', formData);
       
       success('Profil mis à jour avec succès');

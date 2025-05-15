@@ -2,9 +2,10 @@
 import React, { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FiBell, FiUser, FiSearch, FiLogOut } from 'react-icons/fi';
+import { FiBell, FiUser, FiSearch, FiLogOut, FiMessageSquare, FiEye } from 'react-icons/fi';
 import Sidebar from './Sidebar';
 import { useAuth } from '../../context/AuthContext';
+import NotificationBadge from '../common/NotificationBadge';
 
 const OwnerLayout = ({ children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -16,13 +17,27 @@ const OwnerLayout = ({ children }) => {
     const titles = {
       '/owner/dashboard': 'Tableau de bord',
       '/owner/properties': 'Mes logements',
+      '/owner/properties/new': 'Nouveau logement',
       '/owner/bookings': 'Réservations',
       '/owner/calendar': 'Calendrier',
       '/owner/promo-codes': 'Codes promo',
       '/owner/analytics': 'Analytics',
+      '/owner/revenues': 'Revenus',
+      '/owner/payouts': 'Versements',
       '/owner/settings': 'Paramètres'
     };
+    
+    // Gérer les routes dynamiques comme /owner/properties/:id/edit
+    if (path.includes('/owner/properties/') && path.includes('/edit')) {
+      return 'Modifier le logement';
+    }
+    
     return titles[path] || 'Dashboard';
+  };
+
+  // Gérer la déconnexion
+  const handleLogout = () => {
+    logout();
   };
 
   return (
@@ -53,23 +68,23 @@ const OwnerLayout = ({ children }) => {
 
               {/* Actions du header */}
               <div className="flex items-center space-x-4">
-                {/* Barre de recherche */}
-                <div className="hidden md:flex relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiSearch className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Rechercher..."
-                    className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  />
-                </div>
+                
 
                 {/* Notifications */}
-                <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                  <FiBell size={20} />
-                  <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-400 ring-2 ring-white"></span>
-                </button>
+                <NotificationBadge />
+
+                {/* Messages */}
+                <Link to="/messages">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
+                  >
+                    <FiMessageSquare size={20} />
+                    {/* Badge pour messages non lus - optionnel */}
+                    {/* <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-green-400 ring-2 ring-white"></span> */}
+                  </motion.button>
+                </Link>
 
                 {/* Profil utilisateur */}
                 <div className="flex items-center space-x-3">
@@ -95,20 +110,44 @@ const OwnerLayout = ({ children }) => {
                       </div>
                     </button>
 
-                    {/* Menu déroulant du profil */}
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none group-hover:pointer-events-auto z-50">
-                      <div className="py-1">
-                        <Link to="/profile" className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center">
-                          <FiUser className="mr-2" size={16} />
+                    {/* Zone invisible pour faciliter la navigation vers le menu */}
+                    <div className="absolute right-0 top-full w-56 h-2 bg-transparent"></div>
+
+                    {/* Menu déroulant du profil amélioré */}
+                    <div className="absolute right-0 top-full w-56 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                      <div className="py-2">
+                        <div className="px-4 py-2 border-b border-gray-100">
+                          <p className="text-sm font-medium text-gray-900">
+                            {currentUser?.first_name} {currentUser?.last_name}
+                          </p>
+                          <p className="text-xs text-gray-500">{currentUser?.email}</p>
+                        </div>
+                        
+                        <Link 
+                          to="/profile" 
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
+                        >
+                          <FiUser className="mr-3" size={16} />
                           Mon profil
                         </Link>
-                        <button 
-                          onClick={logout}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                        
+                        <Link 
+                          to="/properties" 
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
                         >
-                          <FiLogOut className="mr-2" size={16} />
-                          Déconnexion
-                        </button>
+                          <FiEye className="mr-3" size={16} />
+                          Vue locataire
+                        </Link>
+                        
+                        <div className="border-t border-gray-100 mt-2 pt-2">
+                          <button 
+                            onClick={handleLogout}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
+                          >
+                            <FiLogOut className="mr-3" size={16} />
+                            Déconnexion
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

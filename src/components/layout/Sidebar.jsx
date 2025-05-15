@@ -15,7 +15,9 @@ import {
   FiList,
   FiCreditCard,
   FiTrendingUp,
-  FiGift
+  FiGift,
+  FiArrowLeft,
+  FiExternalLink
 } from 'react-icons/fi';
 
 const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
@@ -24,6 +26,22 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
 
   // Configuration du menu
   const menuItems = [
+    // Lien retour à l'accueil
+    {
+      id: 'back-home',
+      to: '/',
+      icon: <FiArrowLeft />,
+      label: 'Retour à l\'accueil',
+      badge: null,
+      isSpecial: true,
+      external: true
+    },
+    // Séparateur
+    { 
+      id: 'separator-1', 
+      type: 'separator',
+      label: 'Espace propriétaire'
+    },
     {
       id: 'dashboard',
       to: '/owner/dashboard',
@@ -117,16 +135,34 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
     }));
   };
 
-  // Simuler navigation (remplacer par Link dans l'implémentation réelle)
-  const handleNavigation = (to) => {
-    console.log(`Navigation vers: ${to}`);
-  };
+  // Rendu d'un séparateur
+  const renderSeparator = (item) => (
+    <div key={item.id} className="py-3">
+      {!isCollapsed && (
+        <div className="px-3">
+          <div className="border-t border-gray-200 relative">
+            <span className="bg-white px-2 text-xs text-gray-500 absolute -top-2 left-3">
+              {item.label}
+            </span>
+          </div>
+        </div>
+      )}
+      {isCollapsed && (
+        <div className="border-t border-gray-200 mx-3"></div>
+      )}
+    </div>
+  );
 
   // Rendu d'un élément de menu
   const renderMenuItem = (item, isSubItem = false) => {
+    if (item.type === 'separator') {
+      return renderSeparator(item);
+    }
+
     const isActive = isActiveMenu(item);
     const hasSubmenu = item.submenu && !isSubItem;
     const isExpanded = expandedMenus[item.id];
+    const isSpecial = item.isSpecial;
 
     return (
       <div key={item.id || item.to}>
@@ -136,9 +172,11 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
             className={`
               flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
               ${isSubItem ? 'ml-6 pl-6' : ''}
-              ${isActive 
-                ? 'bg-primary-500 text-white shadow-md' 
-                : 'text-gray-700 hover:bg-gray-100 hover:text-primary-600'
+              ${isSpecial 
+                ? 'text-primary-600 hover:bg-primary-50 border border-primary-200 hover:border-primary-300' 
+                : isActive 
+                  ? 'bg-primary-500 text-white shadow-md' 
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-primary-600'
               }
               ${isCollapsed && !isSubItem ? 'justify-center px-2' : ''}
             `}
@@ -153,12 +191,16 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                   initial={{ opacity: 0, width: 0 }}
                   animate={{ opacity: 1, width: 'auto' }}
                   exit={{ opacity: 0, width: 0 }}
-                  className="truncate"
+                  className="truncate flex-1"
                 >
                   {item.label}
                 </motion.span>
               )}
             </AnimatePresence>
+
+            {item.external && !isCollapsed && (
+              <FiExternalLink size={14} className="ml-2 opacity-60" />
+            )}
 
             {item.badge && !isCollapsed && (
               <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">
@@ -243,7 +285,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
       }}
       className="bg-white shadow-lg border-r border-gray-200 h-screen flex-shrink-0 relative"
     >
-      {/* En-tête */}
+      {/* En-tête avec logo cliquable */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <AnimatePresence>
@@ -254,13 +296,24 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                 exit={{ opacity: 0, scale: 0.8 }}
                 className="flex items-center"
               >
-                <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">F</span>
-                </div>
-                <span className="ml-3 text-xl font-bold text-gray-800">FINDAM</span>
+                <Link to="/" className="flex items-center hover:opacity-80 transition-opacity">
+                  <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">F</span>
+                  </div>
+                  <span className="ml-3 text-xl font-bold text-gray-800">FINDAM</span>
+                </Link>
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Logo seul quand collapsed */}
+          {isCollapsed && (
+            <Link to="/" className="hover:opacity-80 transition-opacity">
+              <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">F</span>
+              </div>
+            </Link>
+          )}
 
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
@@ -288,7 +341,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
               exit={{ opacity: 0 }}
               className="text-xs text-gray-500 text-center"
             >
-              Version 1.0.0
+              <div className="mb-1">Version 1.0.0</div>
+              <div className="text-primary-600">Espace propriétaire</div>
             </motion.div>
           )}
         </AnimatePresence>
