@@ -17,6 +17,7 @@ import PropertyReviews from './pages/PropertyReviews';
 import BookingNew from './pages/BookingNew';
 import BookingList from './pages/BookingList';
 import BookingDetail from './pages/BookingDetail';
+import TenantBookingCalendarPage from './pages/TenantBookingCalendarPage';
 import Messages from './pages/Messages';
 import Notifications from './pages/Notifications';
 import NotFound from './pages/NotFound';
@@ -103,6 +104,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <BookingList />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/bookings/calendar" 
+              element={
+                <PrivateRoute>
+                  <TenantBookingCalendarPage />
                 </PrivateRoute>
               } 
             />

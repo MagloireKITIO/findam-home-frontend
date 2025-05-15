@@ -130,7 +130,7 @@ const BookingDetail = () => {
       // Récupérer la configuration de la période de grâce
       const getGracePeriodConfig = async () => {
         try {
-          const response = await api.get('/api/v1/config/system/', {
+          const response = await api.get('/config/system/by_key/', {
             params: { key: 'CANCELLATION_GRACE_PERIOD_MINUTES' }
           });
           
