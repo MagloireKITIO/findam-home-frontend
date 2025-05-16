@@ -21,6 +21,7 @@ import TenantBookingCalendarPage from './pages/TenantBookingCalendarPage';
 import Messages from './pages/Messages';
 import Notifications from './pages/Notifications';
 import NotFound from './pages/NotFound';
+import Unauthorized from './pages/Unauthorized';
 import OwnerBookingList from './pages/owner/OwnerBookingList';
 import OwnerBookingDetail from './pages/owner/OwnerBookingDetail';
 // Nouvelles pages d'authentification
@@ -62,6 +63,8 @@ function App() {
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/auth/complete-profile" element={<CompleteProfile />} />
 
+            {/* Page d'accès non autorisé */}
+            <Route path="/unauthorized" element={<Unauthorized />} />
             
             {/* Pages privées - Accueil et profil */}
             <Route 
@@ -91,11 +94,11 @@ function App() {
               } 
             />
             
-            {/* Pages privées - Réservations */}
+            {/* Pages privées - Réservations (LOCATAIRES UNIQUEMENT) */}
             <Route 
               path="/booking/new" 
               element={
-                <PrivateRoute>
+                <PrivateRoute tenantOnly={true}>
                   <BookingNew />
                 </PrivateRoute>
               } 
@@ -103,7 +106,7 @@ function App() {
             <Route 
               path="/bookings" 
               element={
-                <PrivateRoute>
+                <PrivateRoute tenantOnly={true}>
                   <BookingList />
                 </PrivateRoute>
               } 
@@ -111,7 +114,7 @@ function App() {
             <Route 
               path="/bookings/calendar" 
               element={
-                <PrivateRoute>
+                <PrivateRoute tenantOnly={true}>
                   <TenantBookingCalendarPage />
                 </PrivateRoute>
               } 
@@ -119,7 +122,7 @@ function App() {
             <Route 
               path="/bookings/:id" 
               element={
-                <PrivateRoute>
+                <PrivateRoute tenantOnly={true}>
                   <BookingDetail />
                 </PrivateRoute>
               } 
@@ -143,11 +146,11 @@ function App() {
               } 
             />
             
-            {/* Pages privées - Espace propriétaire */}
+            {/* Pages privées - Espace propriétaire (PROPRIÉTAIRES UNIQUEMENT) */}
             <Route 
               path="/owner/dashboard" 
               element={
-                <PrivateRoute requireVerified={true}>
+                <PrivateRoute ownerOnly={true} requireVerified={true}>
                   <OwnerDashboard />
                 </PrivateRoute>
               } 
@@ -155,7 +158,7 @@ function App() {
             <Route 
               path="/owner/properties" 
               element={
-                <PrivateRoute requireVerified={true}>
+                <PrivateRoute ownerOnly={true} requireVerified={true}>
                   <PropertyManagement />
                 </PrivateRoute>
               } 
@@ -163,7 +166,7 @@ function App() {
             <Route 
               path="/owner/properties/new" 
               element={
-                <PrivateRoute requireVerified={true}>
+                <PrivateRoute ownerOnly={true} requireVerified={true}>
                   <PropertyEditor />
                 </PrivateRoute>
               } 
@@ -171,7 +174,7 @@ function App() {
             <Route 
               path="/owner/properties/:id/edit" 
               element={
-                <PrivateRoute requireVerified={true}>
+                <PrivateRoute ownerOnly={true} requireVerified={true}>
                   <PropertyEditor />
                 </PrivateRoute>
               } 
@@ -179,7 +182,7 @@ function App() {
             <Route 
               path="/owner/bookings" 
               element={
-                <PrivateRoute requireVerified={true}>
+                <PrivateRoute ownerOnly={true} requireVerified={true}>
                   <OwnerBookingList />
                 </PrivateRoute>
               } 
@@ -187,7 +190,7 @@ function App() {
             <Route 
               path="/owner/bookings/:id" 
               element={
-                <PrivateRoute requireVerified={true}>
+                <PrivateRoute ownerOnly={true} requireVerified={true}>
                   <OwnerBookingDetail />
                 </PrivateRoute>
               } 
@@ -195,7 +198,7 @@ function App() {
             <Route 
               path="/owner/calendar" 
               element={
-                <PrivateRoute requireVerified={true}>
+                <PrivateRoute ownerOnly={true} requireVerified={true}>
                   <BookingCalendarPage />
                 </PrivateRoute>
               } 
@@ -203,7 +206,7 @@ function App() {
             <Route 
               path="/owner/promo-codes" 
               element={
-                <PrivateRoute requireVerified={true}>
+                <PrivateRoute ownerOnly={true} requireVerified={true}>
                   <PromoCodeManagement />
                 </PrivateRoute>
               } 
@@ -211,7 +214,7 @@ function App() {
             <Route 
               path="/owner/subscription" 
               element={
-                <PrivateRoute>
+                <PrivateRoute ownerOnly={true}>
                   <OwnerSubscription />
                 </PrivateRoute>
               } 
@@ -219,7 +222,7 @@ function App() {
             <Route 
               path="/owner/subscription/:id/payment" 
               element={
-                <PrivateRoute>
+                <PrivateRoute ownerOnly={true}>
                   <OwnerSubscriptionPayment />
                 </PrivateRoute>
               } 
@@ -227,7 +230,7 @@ function App() {
             <Route 
               path="/owner/subscription/success" 
               element={
-                <PrivateRoute>
+                <PrivateRoute ownerOnly={true}>
                   <SubscriptionSuccess />
                 </PrivateRoute>
               } 
@@ -235,7 +238,7 @@ function App() {
             <Route 
               path="/owner/subscription/cancel" 
               element={
-                <PrivateRoute>
+                <PrivateRoute ownerOnly={true}>
                   <SubscriptionCancel />
                 </PrivateRoute>
               } 
