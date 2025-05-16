@@ -21,7 +21,8 @@ import TenantBookingCalendarPage from './pages/TenantBookingCalendarPage';
 import Messages from './pages/Messages';
 import Notifications from './pages/Notifications';
 import NotFound from './pages/NotFound';
-
+import OwnerBookingList from './pages/owner/OwnerBookingList';
+import OwnerBookingDetail from './pages/owner/OwnerBookingDetail';
 // Nouvelles pages d'authentification
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -179,7 +180,15 @@ function App() {
               path="/owner/bookings" 
               element={
                 <PrivateRoute requireVerified={true}>
-                  <BookingManagement />
+                  <OwnerBookingList />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/owner/bookings/:id" 
+              element={
+                <PrivateRoute requireVerified={true}>
+                  <OwnerBookingDetail />
                 </PrivateRoute>
               } 
             />

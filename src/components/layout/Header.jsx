@@ -37,24 +37,27 @@ const Header = () => {
       { to: '/', icon: <FiHome />, text: 'Accueil' },
       { to: '/properties', icon: <FiSearch />, text: 'Explorer' },
     ];
-
+  
     if (!currentUser) {
       return commonLinks;
     }
-
+  
+    // Routes pour les propriétaires
+    if (currentUser.user_type === 'owner') {
+      return [
+        ...commonLinks,
+        { to: '/owner/bookings', icon: <FiCalendar />, text: 'Réservations' }, // Changé ici
+        { to: '/owner/dashboard', icon: <FiHome />, text: 'Dashboard' },
+      ];
+    }
+  
+    // Routes pour les locataires
     const authenticatedLinks = [
       ...commonLinks,
       { to: '/bookings', icon: <FiCalendar />, text: 'Réservations' },
       // { to: '/messages', icon: <FiMessageSquare />, text: 'Messages' },
     ];
-
-    if (currentUser.user_type === 'owner') {
-      return [
-        ...authenticatedLinks,
-        { to: '/owner/dashboard', icon: <FiHome />, text: 'Dashboard' },
-      ];
-    }
-
+  
     return authenticatedLinks;
   };
 
