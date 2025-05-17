@@ -1,7 +1,7 @@
 // src/components/owner/BookingStatusBadge.jsx
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FiCheckCircle, FiXCircle, FiClock, FiAlertCircle } from 'react-icons/fi';
+import { FiCheckCircle, FiXCircle, FiClock, FiAlertCircle, FiHome } from 'react-icons/fi';
 
 /**
  * Composant pour afficher un badge de statut de réservation
@@ -9,8 +9,24 @@ import { FiCheckCircle, FiXCircle, FiClock, FiAlertCircle } from 'react-icons/fi
  * @param {string} className - Classes CSS supplémentaires
  * @returns {JSX.Element} Le badge avec le statut
  */
-const BookingStatusBadge = ({ status, className = '' }) => {
+const BookingStatusBadge = ({ status, isExternal = false, className = '' }) => {
   // Configuration des styles et icônes selon le statut
+  if (isExternal) {
+    return (
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className={`
+          inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+          bg-purple-100 text-purple-800 border border-purple-200
+          ${className}
+        `}
+      >
+        <span className="mr-1"><FiHome size={12} /></span>
+        Externe
+      </motion.div>
+    );
+  }
   const statusConfig = {
     pending: {
       icon: <FiClock />,

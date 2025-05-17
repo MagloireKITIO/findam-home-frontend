@@ -85,6 +85,12 @@ const BookingManagement = () => {
         if (filters.paymentStatus !== 'all') {
           params.payment_status = filters.paymentStatus;
         }
+
+        if (filters.booking_type === 'external') {
+          params.is_external = 'true';
+        } else if (filters.booking_type === 'platform') {
+          params.is_external = 'false';
+        }
         
         if (filters.period === 'current') {
           params.is_active = true;
@@ -450,24 +456,43 @@ const BookingManagement = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                        {booking.tenant_details?.profile?.avatar ? (
-                          <img 
-                            src={booking.tenant_details.profile.avatar}
-                            alt={booking.tenant_name}
-                            className="h-10 w-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <FiUser className="text-gray-500" />
-                        )}
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                          {booking.is_external ? (
+                            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                              <FiHome className="text-purple-600" size={20} />
+                            </div>
+                          ) : booking.tenant_details?.profile?.avatar ? (
+                            <img 
+                              src={booking.tenant_details.profile.avatar}
+                              alt={booking.tenant_name}
+                              className="h-10 w-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <FiUser className="text-gray-500" />
+                          )}
+                        </div>
+                        <div className="ml-3">
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium text-gray-900">
+                              {booking.tenant_name || booking.external_client_name}
+                            </span>
+                            {booking.is_external && (
+                              <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                                <FiHome className="mr-1" size={12} />
+                                Externe
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {booking.is_external ? 
+                              (booking.tenant_details?.phone_number || 'Réservation externe') : 
+                              booking.tenant_details?.email
+                            }
+                          </div>
+                        </div>
                       </div>
-                      <div className="ml-3">
-                        <div className="text-sm font-medium text-gray-900">{booking.tenant_name}</div>
-                        <div className="text-xs text-gray-500">{booking.tenant_details?.email}</div>
-                      </div>
-                    </div>
-                  </td>
+                    </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{booking.property_title}</div>
                     <div className="text-xs text-gray-500">{booking.city}, {booking.neighborhood}</div>
@@ -482,15 +507,17 @@ const BookingManagement = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      {booking.total_price.toLocaleString()} FCFA
+                      {booking.is_external ? (
+                        <span className="text-gray-400 italic">Sans facturation</span>
+                      ) : (
+                        `${booking.total_price?.toLocaleString()} FCFA`
+                      )}
                     </div>
-                    <div className={`text-xs ${
-                      booking.payment_status === 'paid' ? 'text-green-600' : 
-                      booking.payment_status === 'pending' ? 'text-yellow-600' : 'text-gray-500'
-                    }`}>
-                      {booking.payment_status === 'paid' ? 'Payé' : 
-                       booking.payment_status === 'pending' ? 'En attente' : 
-                       booking.payment_status === 'refunded' ? 'Remboursé' : 'Non payé'}
+                    <div className="text-sm text-gray-500">
+                      {booking.is_external ? 
+                        'Réservation externe' : 
+                        (booking.payment_status === 'paid' ? '✓ Payé' : 'En attente')
+                      }
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -646,7 +673,7 @@ const BookingManagement = () => {
               exit={{ height: 0, opacity: 0 }}
               className="mt-4 pt-4 border-t border-gray-200"
             >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Statut
@@ -661,6 +688,21 @@ const BookingManagement = () => {
                     <option value="confirmed">Confirmée</option>
                     <option value="completed">Terminée</option>
                     <option value="cancelled">Annulée</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Type de réservation
+                  </label>
+                  <select
+                    value={filters.booking_type || ''}
+                    onChange={(e) => setFilters({ ...filters, booking_type: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    <option value="">Tous les types</option>
+                    <option value="platform">Réservations plateforme</option>
+                    <option value="external">Réservations externes</option>
                   </select>
                 </div>
                 

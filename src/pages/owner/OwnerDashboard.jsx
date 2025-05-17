@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { 
   FiHome, FiCalendar, FiUsers, FiDollarSign, 
   FiTrendingUp, FiStar, FiPlusCircle, FiTag,
-  FiArrowRight, FiEye, FiActivity
+  FiArrowRight, FiEye, FiActivity,FiPlus
 } from 'react-icons/fi';
 
 import OwnerLayout from '../../components/layout/OwnerLayout';
@@ -319,6 +319,17 @@ const OwnerDashboard = () => {
                       Voir le calendrier
                     </Button>
                   </Link>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start" 
+                    icon={<FiPlus />}
+                    onClick={() => {
+                      // Ouvrir une modal ou rediriger vers le calendrier
+                      window.location.href = '/owner/calendar?action=add_external';
+                    }}
+                  >
+                    Ajouter réservation externe
+                  </Button>
                   <Link to="/owner/promo-codes">
                     <Button variant="outline" className="w-full justify-start" icon={<FiTag />}>
                       Créer un code promo

@@ -4,8 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   FiCalendar, FiHome, FiUser, FiMapPin, FiDollarSign,
-  FiClock, FiCheck, FiX, FiMessageSquare, FiStar,
-  FiInfo, FiAlertCircle
+  FiClock, FiCheck, FiX, FiMessageSquare, FiStar, FiInfo, FiAlertCircle
 } from 'react-icons/fi';
 
 import Layout from '../../components/layout/Layout';
@@ -286,37 +285,55 @@ const OwnerBookingDetail = () => {
                   <div className="md:col-span-2">
                     {/* Détails du locataire */}
                     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                      <h2 className="text-xl font-semibold mb-4">Informations du locataire</h2>
-                      
-                      <div className="flex items-center">
-                        <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                          <FiUser size={32} className="text-gray-500" />
-                        </div>
-                        
-                        <div className="ml-4">
-                          <h3 className="font-medium text-lg">{booking.tenant_name}</h3>
-                          <p className="text-gray-600">{booking.tenant_email}</p>
-                          
-                          <div className="flex items-center mt-2">
-                            <div className="flex">
-                              {[...Array(5)].map((_, i) => (
-                                <FiStar
-                                  key={i}
-                                  className={`text-sm ${
-                                    i < (booking.tenant_rating || 0) 
-                                      ? 'text-yellow-500 fill-current' 
-                                      : 'text-gray-300'
-                                  }`}
-                                />
-                              ))}
+                            <h2 className="text-xl font-semibold mb-4">
+                                {booking.is_external ? 'Informations du client' : 'Informations du locataire'}
+                            </h2>
+                            
+                            <div className="flex items-center">
+                                <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                                {booking.is_external ? (
+                                    <FiHome size={32} className="text-purple-500" />
+                                ) : (
+                                    <FiUser size={32} className="text-gray-500" />
+                                )}
+                                </div>
+                                
+                                <div className="ml-4">
+                                <div className="flex items-center">
+                                    <h3 className="font-medium text-lg">
+                                    {booking.is_external ? booking.external_details?.client_name : booking.tenant_name}
+                                    </h3>
+                                    {booking.is_external && (
+                                    <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                        Externe
+                                    </span>
+                                    )}
+                                </div>
+                                
+                                {booking.is_external ? (
+                                    <div className="text-sm space-y-1">
+                                    <div>
+                                        <span className="text-gray-600">Téléphone:</span>
+                                        <span className="font-medium ml-1">
+                                        {booking.external_details?.client_phone || 'Non renseigné'}
+                                        </span>
+                                    </div>
+                                    {booking.external_details?.notes && (
+                                        <div>
+                                        <span className="text-gray-600">Notes:</span>
+                                        <span className="font-medium ml-1">{booking.external_details.notes}</span>
+                                        </div>
+                                    )}
+                                    </div>
+                                ) : (
+                                    <div className="text-sm space-y-1">
+                                    <p className="text-gray-600">{booking.tenant_email}</p>
+                                    {/* Autres détails du locataire... */}
+                                    </div>
+                                )}
+                                </div>
                             </div>
-                            <span className="ml-2 text-sm text-gray-600">
-                              {booking.tenant_rating || 'Nouveau'} {booking.tenant_rating && '(sur 5)'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                            </div>
 
                     {/* Détails du séjour */}
                     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -393,9 +410,21 @@ const OwnerBookingDetail = () => {
                  {/* Colonne droite - Revenus */}
                  <div className="md:col-span-1">
                    <div className="bg-white rounded-lg shadow-md p-6 sticky top-20">
-                     <h2 className="text-xl font-semibold mb-4">Revenus</h2>
-                     
-                     <div className="space-y-3">
+                   <h2 className="text-xl font-semibold mb-4">
+                        {booking.is_external ? 'Revenus' : 'Revenus'}
+                    </h2>
+                    {booking.is_external ? (
+                        <div className="text-center py-8">
+                        <FiHome className="mx-auto text-gray-300 mb-4" size={48} />
+                        <p className="text-gray-500">
+                            Réservation externe sans facturation
+                        </p>
+                        <p className="text-sm text-gray-400 mt-2">
+                            Cette réservation ne génère pas de revenus via la plateforme
+                        </p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
                        <div className="flex justify-between">
                          <span>Montant total</span>
                          <span>{booking.total_price?.toLocaleString()} FCFA</span>
@@ -424,6 +453,7 @@ const OwnerBookingDetail = () => {
                          </div>
                        </div>
                      </div>
+                    )}
 
                      {/* Statut du versement */}
                      {booking.payment_status === 'paid' && (

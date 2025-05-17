@@ -173,9 +173,11 @@ const TenantBookingCalendar = () => {
       ...day,
       bookings: []
     }));
+
+    const visibleBookings = bookingsList.filter(booking => !booking.is_external);
     
     // Pour chaque réservation
-    bookingsList.forEach(booking => {
+    visibleBookings.forEach(booking => {
       // Convertir les dates de check-in et check-out en objets Date
       const checkInDate = new Date(booking.check_in_date);
       const checkOutDate = new Date(booking.check_out_date);
@@ -376,32 +378,38 @@ const TenantBookingCalendar = () => {
                   {/* Réservations du jour */}
                   <div className="space-y-1">
                     {day.bookings.map((booking, bookingIndex) => {
+
+                    // Ne pas afficher les réservations externes aux locataires
+                    // Elles sont déjà prises en compte dans les dates indisponibles
+                    if (booking.is_external) {
+                        return null;
+                    }
                       const isCheckInDay = booking.isCheckIn;
                       const isCheckOutDay = booking.isCheckOut;
                       const isSingleDay = isCheckInDay && isCheckOutDay;
                       
                       return (
                         <div
-                          key={booking.id + bookingIndex}
-                          className={`
+                        key={booking.id + bookingIndex}
+                        className={`
                             p-1 truncate text-xs font-medium
                             ${getBookingColor(booking.status)}
                             ${isCheckInDay && !isSingleDay ? 'rounded-l-md' : ''}
                             ${isCheckOutDay && !isSingleDay ? 'rounded-r-md' : ''}
                             ${isSingleDay ? 'rounded-md' : ''}
-                          `}
-                          title={`${booking.property_title} - ${getStatusDisplay(booking.status)}`}
+                        `}
+                        title={`${booking.property_title} - ${getStatusDisplay(booking.status)}`}
                         >
-                          <div className="flex items-center">
+                        <div className="flex items-center">
                             {isCheckInDay && <span className="mr-1">→</span>}
                             {isCheckOutDay && !isCheckInDay && <span className="mr-1">←</span>}
                             {!isCheckInDay && !isCheckOutDay && <span className="mr-1">―</span>}
                             <span className="truncate">{booking.property_title}</span>
-                          </div>
                         </div>
-                      );
+                        </div>
+                    );
                     })}
-                  </div>
+                    </div>
                 </div>
               );
             })

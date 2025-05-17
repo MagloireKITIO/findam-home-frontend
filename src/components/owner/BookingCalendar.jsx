@@ -271,12 +271,15 @@ const BookingCalendar = ({
     try {
       setIsSubmitting(true);
       
-      await api.post(`/properties/properties/${selectedPropertyId}/add_external_booking/`, {
-        start_date: externalBookingForm.startDate,
-        end_date: externalBookingForm.endDate,
+      // Utiliser le nouvel endpoint
+      await api.post('/bookings/bookings/create_external_booking/', {
+        property_id: selectedPropertyId,
+        check_in_date: externalBookingForm.startDate,
+        check_out_date: externalBookingForm.endDate,
         external_client_name: externalBookingForm.clientName,
         external_client_phone: externalBookingForm.clientPhone,
-        notes: externalBookingForm.notes
+        external_notes: externalBookingForm.notes,
+        guests_count: parseInt(externalBookingForm.guestsCount) || 1
       });
       
       success('Réservation externe ajoutée avec succès');
@@ -295,11 +298,11 @@ const BookingCalendar = ({
       
       // Recharger les réservations
       setLastLoadParams(null);
-      loadBookings();
+      await loadBookings();
       
     } catch (err) {
       console.error('Erreur lors de l\'ajout de la réservation externe:', err);
-      notifyError('Une erreur est survenue lors de l\'ajout de la réservation externe');
+      notifyError(err.response?.data?.detail || 'Une erreur est survenue lors de l\'ajout de la réservation externe');
     } finally {
       setIsSubmitting(false);
     }
@@ -436,63 +439,81 @@ const BookingCalendar = ({
                   
                   {/* Réservations du jour */}
                   <div className="space-y-1">
-                    {day.bookings.map((booking, bookingIndex) => {
-                      // Si c'est le jour d'arrivée ou le seul jour de la réservation
-                      if (booking.isCheckIn || (booking.isCheckIn && booking.isCheckOut)) {
-                        return (
-                          <div
-                            key={booking.id + bookingIndex}
-                            className={`
-                              rounded-l-md p-1 truncate text-xs font-medium
-                              ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                                booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                booking.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                                booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'}
-                            `}
-                          >
-                            {booking.isCheckIn && booking.isCheckOut ? '↔️' : '→'} {booking.tenant_name || 'Réservation externe'}
-                          </div>
-                        );
+                  {day.bookings.map((booking, bookingIndex) => {
+                    // Déterminer le type de réservation
+                    const isExternal = booking.is_external;
+                    const clientName = isExternal ? booking.external_client_name : (booking.tenant_name || 'Réservation');
+                    
+                    // Définir les couleurs selon le type
+                    let colorClass = '';
+                    if (isExternal) {
+                      colorClass = 'bg-purple-100 text-purple-800 border-l-2 border-purple-400';
+                    } else {
+                      switch (booking.status) {
+                        case 'confirmed':
+                          colorClass = 'bg-green-100 text-green-800';
+                          break;
+                        case 'pending':
+                          colorClass = 'bg-yellow-100 text-yellow-800';
+                          break;
+                        case 'completed':
+                          colorClass = 'bg-blue-100 text-blue-800';
+                          break;
+                        case 'cancelled':
+                          colorClass = 'bg-red-100 text-red-800';
+                          break;
+                        default:
+                          colorClass = 'bg-gray-100 text-gray-800';
                       }
-                      // Si c'est le jour de départ
-                      else if (booking.isCheckOut) {
-                        return (
-                          <div
-                            key={booking.id + bookingIndex}
-                            className={`
-                              rounded-r-md p-1 truncate text-xs font-medium
-                              ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                                booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                booking.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                                booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'}
-                            `}
-                          >
-                            ← {booking.tenant_name || 'Réservation externe'}
-                          </div>
-                        );
-                      }
-                      // Si c'est un jour intermédiaire
-                      else {
-                        return (
-                          <div
-                            key={booking.id + bookingIndex}
-                            className={`
-                              p-1 truncate text-xs font-medium
-                              ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                                booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                booking.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                                booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'}
-                            `}
-                          >
-                            ― {booking.tenant_name || 'Réservation externe'}
-                          </div>
-                        );
-                      }
-                    })}
-                  </div>
+                    }
+                    
+                    // Si c'est le jour d'arrivée ou le seul jour de la réservation
+                    if (booking.isCheckIn || (booking.isCheckIn && booking.isCheckOut)) {
+                      return (
+                        <div
+                          key={booking.id + bookingIndex}
+                          className={`
+                            rounded-l-md p-1 truncate text-xs font-medium
+                            ${colorClass}
+                          `}
+                        >
+                          {isExternal && <span className="mr-1">🔒</span>}
+                          {booking.isCheckIn && booking.isCheckOut ? '↔️' : '→'} {clientName}
+                        </div>
+                      );
+                    }
+                    // Si c'est le jour de départ
+                    else if (booking.isCheckOut) {
+                      return (
+                        <div
+                          key={booking.id + bookingIndex}
+                          className={`
+                            rounded-r-md p-1 truncate text-xs font-medium
+                            ${colorClass}
+                          `}
+                        >
+                          {isExternal && <span className="mr-1">🔒</span>}
+                          ← {clientName}
+                        </div>
+                      );
+                    }
+                    // Si c'est un jour intermédiaire
+                    else {
+                      return (
+                        <div
+                          key={booking.id + bookingIndex}
+                          className={`
+                            p-1 truncate text-xs font-medium
+                            ${colorClass}
+                          `}
+                        >
+                          {isExternal && <span className="mr-1">🔒</span>}
+                          ― {clientName}
+                        </div>
+                      );
+                    }
+                  })}
+                </div>
                 </div>
               );
             })
@@ -523,6 +544,10 @@ const BookingCalendar = ({
           <div className="flex items-center">
             <div className="w-4 h-4 bg-gray-100 rounded mr-2"></div>
             <span className="text-sm text-gray-600">Externe</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-4 h-4 bg-purple-100 border-l-2 border-purple-400 rounded mr-2"></div>
+            <span className="text-sm text-gray-600">Réservation externe</span>
           </div>
         </div>
       </div>
